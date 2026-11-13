@@ -48,12 +48,26 @@
   #shelf{display:none;position:fixed;inset:0;z-index:25;background:rgba(30,34,48,.45);align-items:center;justify-content:center;padding:20px}
   #shelf .card{background:#fff;border-radius:20px;padding:22px;max-width:380px;width:100%;text-align:center}
   #shelfItems{font-size:40px;line-height:1.3;margin:10px 0;word-break:break-all}
+  #lib{display:none;position:fixed;inset:0;z-index:25;background:rgba(30,34,48,.45);align-items:flex-start;justify-content:center;padding:40px 14px;overflow:auto}
+  #lib .card{background:#fff;border-radius:20px;padding:18px;max-width:520px;width:100%}
+  #lib h2{margin:0 0 10px;font-size:20px}
+  .song{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:14px;margin-bottom:8px;cursor:pointer}
+  .song.cur{border-color:var(--accent);background:#F1F4FF}
+  .song .t{flex:1;min-width:0}
+  .song .t b{display:block;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .song .t small{color:var(--muted);font-size:13px}
+  .song .pz{font-size:24px}
+  .song .del{border:none;background:none;color:var(--muted);font-size:13px;padding:6px 8px}
+  .song .del.sure{color:#fff;background:var(--off);border-radius:999px}
+  #libEmpty{color:var(--muted);padding:14px 4px}
+  #libFoot{display:flex;justify-content:space-between;gap:8px;margin-top:10px}
 </style>
 </head>
 <body>
 <header>
   <h1>Lauluabiline</h1>
-  <label class="filebtn">Ava noot<input id="file" type="file" accept=".mxl,.musicxml,.xml,application/vnd.recordare.musicxml,application/vnd.recordare.musicxml+xml,text/xml"></label>
+  <button id="libBtn" class="primary" style="background:#1E2230;border-color:#1E2230">Minu laulud</button>
+  <label class="filebtn">+ Lisa laul<input id="file" type="file" accept=".mxl,.musicxml,.xml,application/vnd.recordare.musicxml,application/vnd.recordare.musicxml+xml,text/xml"></label>
   <select id="voiceSel" disabled><option>Hääl</option></select>
   <button id="micBtn" class="primary" disabled>Laula</button>
   <button id="playBtn" disabled>Mängi ette</button>
@@ -83,6 +97,8 @@
 <div id="summary"><div class="card"><div id="sumTitle">Laul läbi!</div><div class="trophy" id="sumTrophy"></div><div class="big" id="sumPct"></div><div id="sumText"></div><br><button class="primary" id="sumAgain">Proovi uuesti</button></div></div>
 <div id="shelf"><div class="card"><b>Minu auhinnad</b><div id="shelfItems"></div><div id="shelfText" style="color:#6B7080;font-size:14px"></div><br><button id="shelfClose">Sulge</button></div></div>
 <canvas id="confetti"></canvas>
+<div id="lib"><div class="card"><h2>Minu laulud</h2><div id="libList"></div><div id="libEmpty">Arhiiv on tühi. Lisa esimene laul (.mxl fail).</div>
+<div id="libFoot"><label class="filebtn primary" style="background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600">+ Lisa laul<input id="file2" type="file" accept=".mxl,.musicxml,.xml,application/vnd.recordare.musicxml,application/vnd.recordare.musicxml+xml,text/xml" multiple></label><button id="libClose">Sulge</button></div></div></div>
 <script>
 (function(){
 "use strict";
@@ -143,12 +159,65 @@ async function readFile(file){
   }
   return new TextDecoder().decode(u8);
 }
-$("file").addEventListener("change",async e=>{
-  const f=e.target.files&&e.target.files[0];if(!f)return;
-  if(/\.pdf$/i.test(f.name)){showMsg("See on PDF. Lauluabiline vajab MusicXML-faili (.mxl või .musicxml).");return;}
-  try{const x=await readFile(f);store("la_xml",x);store("la_opt","0");await openScore(x,0);}
-  catch(err){showMsg("Faili avamine ebaõnnestus. Kas see on MusicXML-fail (.mxl / .musicxml)?");}
-});
+async function addFiles(files){
+  let lastId=null;
+  for(const f of files){
+    if(/\.pdf$/i.test(f.name)){showMsg("See on PDF. Tee sellest enne .mxl fail (kaust Muusika → Noodid → Tee noodifailid).");continue;}
+    try{const x=await readFile(f);const title=xmlTitle(x)||f.name.replace(/\.(mxl|musicxml|xml)$/i,"");
+      const songs=await db.all();const dup=songs.find(z=>z.title===title&&z.xml.length===x.length);
+      if(dup){lastId=dup.id;continue;}
+      const id="s"+Date.now()+Math.random().toString(36).slice(2,6);
+      await db.put({id,title,file:f.name,xml:x,added:Date.now(),opened:0,opt:0,best:null,prize:null});lastId=id;
+    }catch(err){showMsg("Faili "+f.name+" avamine ebaõnnestus. Kas see on MusicXML-fail (.mxl / .musicxml)?");}
+  }
+  if(lastId){await openSong(lastId);}
+  await renderLib();
+}
+function xmlTitle(x){try{const d=new DOMParser().parseFromString(x,"application/xml");
+  const t=d.querySelector("work > work-title")||d.querySelector("movement-title")||[...d.querySelectorAll("credit-words")].sort((a,b)=>(+b.getAttribute("font-size")||0)-(+a.getAttribute("font-size")||0))[0];
+  return t?t.textContent.trim():"";}catch(e){return ""}}
+$("file").addEventListener("change",e=>{addFiles([...e.target.files]);e.target.value="";});
+$("file2").addEventListener("change",e=>{$("lib").style.display="none";addFiles([...e.target.files]);e.target.value="";});
+
+/* ---------- song library (IndexedDB) ---------- */
+const db=(function(){
+  let mem={},dbp=null;
+  function open(){if(dbp)return dbp;dbp=new Promise(res=>{try{const r=indexedDB.open("lauluabiline",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("songs",{keyPath:"id"});
+    r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);}catch(e){res(null)}});return dbp;}
+  async function tx(mode,fn){const d=await open();if(!d)return fn(null);return new Promise(res=>{const t=d.transaction("songs",mode),st=t.objectStore("songs");const r=fn(st);t.oncomplete=()=>res(r&&r.result);t.onerror=()=>res(null);});}
+  return{
+    async all(){const d=await open();if(!d)return Object.values(mem);return new Promise(res=>{const r=d.transaction("songs").objectStore("songs").getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>res([]);});},
+    async get(id){const d=await open();if(!d)return mem[id];return new Promise(res=>{const r=d.transaction("songs").objectStore("songs").get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);});},
+    async put(o){mem[o.id]=o;return tx("readwrite",st=>st&&st.put(o));},
+    async del(id){delete mem[id];return tx("readwrite",st=>st&&st.delete(id));}
+  };
+})();
+let curSong=null;
+async function openSong(id){
+  const sg=await db.get(id);if(!sg)return;
+  curSong=sg;sg.opened=Date.now();await db.put(sg);store("la_cur",id);
+  await openScore(sg.xml,sg.opt||0);
+}
+async function renderLib(){
+  const songs=(await db.all()).sort((a,b)=>(b.opened||b.added)-(a.opened||a.added));
+  const L=$("libList");L.innerHTML="";$("libEmpty").style.display=songs.length?"none":"block";
+  songs.forEach(sg=>{
+    const d=document.createElement("div");d.className="song"+(curSong&&curSong.id===sg.id?" cur":"");
+    const info=[];if(sg.best!=null)info.push("parim "+sg.best+"%");info.push(sg.opened?"viimati "+new Date(sg.opened).toLocaleDateString("et-EE"):"lisatud "+new Date(sg.added).toLocaleDateString("et-EE"));
+    d.innerHTML='<div class="pz"></div><div class="t"><b></b><small></small></div><button class="del">Kustuta</button>';
+    d.querySelector(".pz").textContent=sg.prize||"🎵";d.querySelector("b").textContent=sg.title;d.querySelector("small").textContent=info.join(" · ");
+    const del=d.querySelector(".del");
+    del.addEventListener("click",async ev=>{ev.stopPropagation();
+      if(!del.classList.contains("sure")){del.classList.add("sure");del.textContent="Kindel?";setTimeout(()=>{del.classList.remove("sure");del.textContent="Kustuta";},3000);return;}
+      await db.del(sg.id);if(curSong&&curSong.id===sg.id)curSong=null;renderLib();});
+    d.addEventListener("click",async()=>{$("lib").style.display="none";await openSong(sg.id);});
+    L.appendChild(d);
+  });
+}
+$("libBtn").addEventListener("click",async()=>{await renderLib();$("lib").style.display="flex";});
+$("libClose").addEventListener("click",()=>{$("lib").style.display="none";});
+
 async function openScore(x,opt){
   showMsg("");xmlText=x;
   if(!osmd)osmd=osmdInit();if(!osmd)return;
@@ -170,7 +239,7 @@ async function openScore(x,opt){
   curOpt=Math.min(opt||0,voiceOpts.length-1);sel.value=curOpt;sel.disabled=false;
   setupVoice();
 }
-$("voiceSel").addEventListener("change",e=>{curOpt=+e.target.value;store("la_opt",String(curOpt));setupVoice();});
+$("voiceSel").addEventListener("change",e=>{curOpt=+e.target.value;if(curSong){curSong.opt=curOpt;db.put(curSong);}setupVoice();});
 
 function render(){
   const w=$("scoreWrap").clientWidth;osmd.zoom=w<600?0.62:w<900?0.8:1.0;
@@ -372,6 +441,8 @@ function finish(){
   idx=targets.length;active=false;stopMic();
   const good=status.filter(s=>s==="good").length,fixed=status.filter(s=>s==="fixed").length,n=targets.length,errors=n-good;
   $("targetNote").textContent="✓";
+  const pct=Math.round(100*good/n);
+  if(curSong){curSong.best=Math.max(curSong.best||0,pct);if(errors===0&&!curSong.prize)curSong.prize=PRIZES[getPrizes().length%PRIZES.length];db.put(curSong);}
   if(errors===0){
     const prizes=getPrizes();const e=PRIZES[prizes.length%PRIZES.length];
     prizes.push({e,song:songTitle(),date:new Date().toISOString().slice(0,10)});store("la_prizes",JSON.stringify(prizes));showPrizeCount();
@@ -389,8 +460,14 @@ function finish(){
 }
 
 /* ---------- restore last song ---------- */
-const saved=load("la_xml");
-if(saved){openScore(saved,+(load("la_opt")||0)).catch(()=>{});}
+(async()=>{
+  const legacy=load("la_xml");
+  if(legacy){const songs=await db.all();if(!songs.some(z=>z.xml===legacy)){const id="s"+Date.now();await db.put({id,title:xmlTitle(legacy)||"Laul",file:"",xml:legacy,added:Date.now(),opened:Date.now(),opt:+(load("la_opt")||0),best:null,prize:null});store("la_cur",id);}
+    try{localStorage.removeItem("la_xml")}catch(e){}}
+  const cur=load("la_cur");const songs=await db.all();
+  if(cur&&songs.some(z=>z.id===cur))openSong(cur).catch(()=>{});
+  else if(songs.length){await renderLib();$("lib").style.display="flex";}
+})();
 })();
 </script>
 </body>
