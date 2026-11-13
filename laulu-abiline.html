@@ -3,348 +3,346 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lauluabiline">
 <title>Lauluabiline</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@2.3.1/build/opensheetmusicdisplay.min.js"></script>
 <style>
-  :root{
-    --bg:#FAF6EF; --card:#FFFFFF; --ink:#1E2230; --muted:#6B7080; --line:#E6E0D6;
-    --accent:#2F5BEA; --good:#1F9D55; --near:#E0A100; --off:#E4572E;
-  }
+  :root{--bg:#FAF6EF;--card:#fff;--ink:#1E2230;--muted:#6B7080;--line:#E6E0D6;--accent:#2F5BEA;--good:#1F9D55;--near:#E0A100;--off:#E4572E}
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-  header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--card)}
-  header h1{font-size:18px;margin:0 8px 0 0;font-weight:700;letter-spacing:.2px}
-  button,.filebtn{font:inherit;font-size:15px;border:1px solid var(--line);background:var(--card);color:var(--ink);
-    padding:9px 14px;border-radius:999px;cursor:pointer;user-select:none;-webkit-user-select:none}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--line)}
+  header h1{font-size:17px;margin:0 6px 0 0}
+  button,.filebtn,select{font:inherit;font-size:15px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 13px;border-radius:999px;cursor:pointer;-webkit-user-select:none;user-select:none}
+  select{padding:8px 10px;max-width:170px}
   button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
   button.primary.on{background:var(--off);border-color:var(--off)}
+  button:disabled{opacity:.45}
   .filebtn input{display:none}
-  .hint{color:var(--muted);font-size:13px}
-  main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;padding:12px;height:calc(100% - 62px)}
-  @media (max-width:820px){ main{grid-template-columns:minmax(0,1fr);height:auto} #sheet{height:46vh} }
-  .card{background:var(--card);border:1px solid var(--line);border-radius:16px}
-  #sheet{overflow:auto;padding:8px;min-height:200px;-webkit-overflow-scrolling:touch}
-  #sheet canvas,#sheet img{display:block;width:100%;height:auto;margin:0 auto 8px;border-radius:6px}
-  #sheetEmpty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);gap:8px;padding:20px}
-  #right{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
-  #now{display:flex;align-items:center;gap:16px;padding:14px 18px}
-  #noteBig{font-size:64px;font-weight:800;min-width:120px;text-align:center;line-height:1}
-  #noteInfo{flex:1}
-  #octave{font-size:15px;color:var(--muted)}
-  #status{font-size:20px;font-weight:700;margin:6px 0 8px}
-  .meter{position:relative;height:14px;border-radius:7px;background:linear-gradient(90deg,var(--off) 0 25%,var(--near) 25% 38%,var(--good) 38% 62%,var(--near) 62% 75%,var(--off) 75%)}
-  .meter i{position:absolute;top:-5px;width:4px;height:24px;background:var(--ink);border-radius:2px;left:50%;transform:translateX(-2px);transition:left .08s}
-  .meterlbl{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:4px}
-  #staffWrap{padding:6px 8px;flex:1;min-height:180px;display:flex}
-  #staff{width:100%;height:100%;min-height:170px}
-  #phraseCard{padding:10px 12px}
-  #phraseHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-  #phraseHead b{font-size:14px}
-  #chips{display:flex;flex-wrap:wrap;gap:6px;min-height:34px;max-height:96px;overflow:auto}
-  .chip{padding:5px 10px;border-radius:999px;font-weight:700;font-size:15px;color:#fff}
-  .sep{width:2px;background:var(--line);margin:0 4px;border-radius:1px}
-  #pianoCard{padding:8px;overflow-x:auto;min-width:0}
-  #piano{position:relative;height:120px;min-width:520px;touch-action:manipulation}
-  .wk,.bk{position:absolute;top:0;border:1px solid #C9C2B6;border-radius:0 0 8px 8px;cursor:pointer}
-  .wk{background:#fff;height:100%;z-index:1;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;font-size:12px;color:var(--muted)}
-  .bk{background:#232634;height:62%;z-index:2;border-color:#232634}
-  .wk.press{background:#DCE5FF}.bk.press{background:#4A5578}
-  .wk.sung{background:#D6F5E2}.bk.sung{background:#1F9D55}
-  .wk.sung.near{background:#FFF0C2}.bk.sung.near{background:#E0A100}
-  .wk.c4::after{content:"";position:absolute;top:8px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .tempo{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+  .tempo input{width:90px}
   #msg{display:none;margin:10px 12px 0;padding:10px 14px;border-radius:12px;background:#FFF1EC;border:1px solid #F4C3B4;color:#8A2E14;font-size:14px}
-  @media (max-width:820px){#noteBig{font-size:52px;min-width:90px}}
+  #scoreWrap{margin:12px;padding:6px;overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:16px;min-height:50vh;margin-bottom:190px}
+  #empty{min-height:48vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);gap:8px;padding:20px}
+  #empty b{color:var(--ink);font-size:17px}
+  #dock{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--card);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -4px 18px rgba(0,0,0,.05)}
+  #row1{display:flex;align-items:center;gap:14px}
+  .box{flex:1;text-align:center;border-radius:14px;padding:6px 4px;background:#F4F1EA}
+  .box small{display:block;font-size:12px;color:var(--muted)}
+  .box span{font-size:38px;font-weight:800;line-height:1.1}
+  #sungBox span{transition:color .1s}
+  #feedback{text-align:center;font-weight:700;font-size:17px;margin:6px 0 4px;min-height:22px}
+  .meter{position:relative;height:10px;border-radius:5px;background:linear-gradient(90deg,var(--off) 0 25%,var(--near) 25% 38%,var(--good) 38% 62%,var(--near) 62% 75%,var(--off) 75%)}
+  .meter i{position:absolute;top:-4px;width:4px;height:18px;background:var(--ink);border-radius:2px;left:50%;transform:translateX(-2px);transition:left .08s}
+  #row3{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+  #row3 button{padding:7px 12px;font-size:14px}
+  #progress{font-size:14px;color:var(--muted);text-align:center;flex:1}
+  #summary{display:none;position:fixed;inset:0;z-index:20;background:rgba(30,34,48,.45);align-items:center;justify-content:center;padding:20px}
+  #summary .card{background:#fff;border-radius:20px;padding:24px;max-width:360px;text-align:center}
+  #summary .big{font-size:48px;font-weight:800;margin:6px 0}
 </style>
 </head>
 <body>
 <header>
   <h1>Lauluabiline</h1>
-  <label class="filebtn">Ava noot (PDF või pilt)<input id="file" type="file" accept="application/pdf,image/*"></label>
-  <button id="micBtn" class="primary">Mikrofon sisse</button>
-  <span class="hint">Vajuta klaverile, et kuulda algusnooti</span>
+  <label class="filebtn">Ava noot<input id="file" type="file" accept=".mxl,.musicxml,.xml,application/vnd.recordare.musicxml,application/vnd.recordare.musicxml+xml,text/xml"></label>
+  <select id="voiceSel" disabled><option>Hääl</option></select>
+  <button id="micBtn" class="primary" disabled>Laula</button>
+  <button id="playBtn" disabled>Mängi ette</button>
+  <button id="restartBtn" disabled>Algusest</button>
+  <label class="tempo">Tempo <input id="tempo" type="range" min="40" max="160" value="90"><span id="tempoVal">90</span></label>
 </header>
 <div id="msg"></div>
-<main>
-  <section id="sheet" class="card">
-    <div id="sheetEmpty">
-      <div style="font-size:17px;font-weight:600;color:var(--ink)">Ava siin oma noot</div>
-      <div>Vali PDF või noodilehe foto. Fail jääb sinu seadmesse.</div>
-    </div>
-  </section>
-  <section id="right">
-    <div id="now" class="card">
-      <div id="noteBig">–</div>
-      <div id="noteInfo">
-        <div id="octave">Laula, ja siin näed nooti</div>
-        <div id="status">&nbsp;</div>
-        <div class="meter"><i id="needle"></i></div>
-        <div class="meterlbl"><span>madal</span><span>täpne</span><span>kõrge</span></div>
-      </div>
-    </div>
-    <div id="staffWrap" class="card"><canvas id="staff"></canvas></div>
-    <div id="phraseCard" class="card">
-      <div id="phraseHead"><b>Lauldud noodid</b><button id="clearBtn" style="padding:5px 12px;font-size:13px">Tühjenda</button></div>
-      <div id="chips"></div>
-    </div>
-    <div id="pianoCard" class="card"><div id="piano"></div></div>
-  </section>
-</main>
+<div id="scoreWrap">
+  <div id="empty"><b>Ava laulu noodifail</b><div>MusicXML-fail (.mxl või .musicxml), näiteks MuseScore'ist eksporditud.</div></div>
+  <div id="score"></div>
+</div>
+<div id="dock">
+  <div id="row1">
+    <div class="box" id="targetBox"><small>Noodis</small><span id="targetNote">–</span></div>
+    <div class="box" id="sungBox"><small>Sina laulad</small><span id="sungNote">–</span></div>
+  </div>
+  <div id="feedback"></div>
+  <div class="meter"><i id="needle"></i></div>
+  <div id="row3">
+    <button id="prevBtn" disabled>◀</button>
+    <button id="giveBtn" disabled>Anna noot</button>
+    <div id="progress"></div>
+    <button id="nextBtn" disabled>▶</button>
+  </div>
+</div>
+<div id="summary"><div class="card"><div>Laul läbi!</div><div class="big" id="sumPct"></div><div id="sumText"></div><br><button class="primary" id="sumAgain">Proovi uuesti</button></div></div>
 <script>
 (function(){
 "use strict";
-const NAMES=["C","Cis","D","Dis","E","F","Fis","G","Gis","A","B","H"];
-const OCT={2:"suur oktav",3:"väike oktav",4:"1. oktav",5:"2. oktav",6:"3. oktav"};
-const A4=440;
 const $=id=>document.getElementById(id);
-function showMsg(t){const m=$("msg");m.textContent=t;m.style.display=t?"block":"none";}
+const NAMES=["C","Cis","D","Dis","E","F","Fis","G","Gis","A","B","H"];
+const SUP={3:"",4:"¹",5:"²",6:"³",2:""};
+const COL={good:"#1F9D55",fixed:"#7BB662",bad:"#E4572E",cur:"#2F5BEA"};
+function noteLabel(m){const r=Math.round(m);const o=Math.floor(r/12)-1;return NAMES[((r%12)+12)%12]+(SUP[o]!==undefined?SUP[o]:"");}
+function showMsg(t){$("msg").textContent=t||"";$("msg").style.display=t?"block":"none";}
+function store(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function load(k){try{return localStorage.getItem(k)}catch(e){return null}}
 
-/* ---------- Audio ---------- */
+/* ---------- audio ---------- */
 let ctx=null;
-function getCtx(){
-  if(!ctx){const AC=window.AudioContext||window.webkitAudioContext;ctx=new AC();}
-  if(ctx.state==="suspended")ctx.resume();
-  return ctx;
-}
-function midiToFreq(m){return A4*Math.pow(2,(m-69)/12);}
-function playNote(m){
-  const c=getCtx(),t=c.currentTime,f=midiToFreq(m);
-  const out=c.createGain();out.gain.setValueAtTime(0.0001,t);
-  out.gain.exponentialRampToValueAtTime(0.35,t+0.008);
-  out.gain.exponentialRampToValueAtTime(0.0001,t+1.8);
+function ac(){if(!ctx){ctx=new(window.AudioContext||window.webkitAudioContext)();}if(ctx.state==="suspended")ctx.resume();return ctx;}
+function tone(midi,start,dur){
+  const c=ac(),t=start||c.currentTime,f=440*Math.pow(2,(midi-69)/12),len=Math.max(0.25,dur||1);
+  const out=c.createGain();out.gain.setValueAtTime(0.0001,t);out.gain.exponentialRampToValueAtTime(0.32,t+0.01);
+  out.gain.exponentialRampToValueAtTime(0.12,t+Math.min(0.4,len*0.6));out.gain.exponentialRampToValueAtTime(0.0001,t+len+0.25);
   out.connect(c.destination);
-  [[1,1],[2,0.45],[3,0.18],[4,0.09]].forEach(([h,a])=>{
-    const o=c.createOscillator(),g=c.createGain();
-    o.type=h===1?"triangle":"sine";o.frequency.value=f*h;g.gain.value=a;
-    o.connect(g);g.connect(out);o.start(t);o.stop(t+1.9);
-  });
+  [[1,1,"triangle"],[2,0.4,"sine"],[3,0.15,"sine"]].forEach(([h,a,ty])=>{const o=c.createOscillator(),g=c.createGain();o.type=ty;o.frequency.value=f*h;g.gain.value=a;o.connect(g);g.connect(out);o.start(t);o.stop(t+len+0.3);});
 }
 
-/* ---------- Piano ---------- */
-const LOW=55,HIGH=84; // G3 .. C6
-const keyEls={};
-(function buildPiano(){
-  const p=$("piano");const whites=[];
-  for(let m=LOW;m<=HIGH;m++){if([0,2,4,5,7,9,11].includes(m%12))whites.push(m);}
-  const w=100/whites.length;
-  whites.forEach((m,i)=>{
-    const d=document.createElement("div");d.className="wk"+(m===60?" c4":"");
-    d.style.left=(i*w)+"%";d.style.width=w+"%";d.textContent=NAMES[m%12]+(m%12===0?(m/12-1-3):"");
-    if(m%12!==0)d.textContent=NAMES[m%12];
-    else d.textContent="C"+(m===60?"¹":m===72?"²":m===84?"³":"");
-    keyEls[m]=d;p.appendChild(d);
-  });
-  for(let m=LOW;m<=HIGH;m++){
-    if([1,3,6,8,10].includes(m%12)){
-      const leftWhite=whites.indexOf(m-1);if(leftWhite<0)continue;
-      const d=document.createElement("div");d.className="bk";
-      d.style.left=((leftWhite+1)*w-w*0.3)+"%";d.style.width=(w*0.6)+"%";
-      keyEls[m]=d;p.appendChild(d);
-    }
-  }
-  Object.entries(keyEls).forEach(([m,el])=>{
-    const down=e=>{e.preventDefault();playNote(+m);el.classList.add("press");};
-    const up=()=>el.classList.remove("press");
-    el.addEventListener("pointerdown",down);
-    el.addEventListener("pointerup",up);el.addEventListener("pointerleave",up);el.addEventListener("pointercancel",up);
-  });
-})();
-let litKey=null;
-function lightKey(m,near){
-  if(litKey!==null&&keyEls[litKey])keyEls[litKey].classList.remove("sung","near");
-  litKey=m;
-  if(m!==null&&keyEls[m]){keyEls[m].classList.add("sung");if(near)keyEls[m].classList.add("near");}
-}
-
-/* ---------- Pitch detection (McLeod) ---------- */
-function detectPitch(buf,sr){
+/* ---------- pitch (McLeod) ---------- */
+function detect(buf,sr){
   const n=buf.length;let rms=0;for(let i=0;i<n;i++)rms+=buf[i]*buf[i];rms=Math.sqrt(rms/n);
-  if(rms<0.012)return null;
-  const minLag=Math.floor(sr/1100),maxLag=Math.min(Math.floor(sr/75),n-1);
-  const nsdf=new Float32Array(maxLag+1);
-  for(let tau=1;tau<=maxLag;tau++){
-    let acf=0,m=0;
-    for(let i=0;i<n-tau;i++){const a=buf[i],b=buf[i+tau];acf+=a*b;m+=a*a+b*b;}
-    nsdf[tau]=m>0?2*acf/m:0;
-  }
-  const peaks=[];let pos=false,best=-1,bestT=0;
+  if(rms<0.012)return {f:null,rms};
+  const minLag=Math.floor(sr/1100),maxLag=Math.min(Math.floor(sr/75),n-1),ns=new Float32Array(maxLag+1);
+  for(let tau=1;tau<=maxLag;tau++){let a=0,m=0;for(let i=0;i<n-tau;i++){const x=buf[i],y=buf[i+tau];a+=x*y;m+=x*x+y*y;}ns[tau]=m>0?2*a/m:0;}
+  const peaks=[];let pos=false,best=-1,bt=0;
   for(let t=2;t<maxLag;t++){
-    if(nsdf[t-1]<=0&&nsdf[t]>0){pos=true;best=-1;}
-    else if(nsdf[t-1]>0&&nsdf[t]<=0&&pos){if(best>0&&bestT>=minLag)peaks.push(bestT);pos=false;}
-    if(pos&&nsdf[t]>best){best=nsdf[t];bestT=t;}
+    if(ns[t-1]<=0&&ns[t]>0){pos=true;best=-1;}
+    else if(ns[t-1]>0&&ns[t]<=0&&pos){if(best>0&&bt>=minLag)peaks.push(bt);pos=false;}
+    if(pos&&ns[t]>best){best=ns[t];bt=t;}
   }
-  if(!peaks.length)return null;
-  let maxV=0;peaks.forEach(t=>{if(nsdf[t]>maxV)maxV=nsdf[t];});
-  if(maxV<0.8)return null;
-  const T=peaks.find(t=>nsdf[t]>=0.9*maxV);
-  const a=nsdf[T-1],b=nsdf[T],c=nsdf[T+1];const d=(a-2*b+c);
-  const shift=d!==0?0.5*(a-c)/d:0;
-  const freq=sr/(T+shift);
-  if(freq<75||freq>1100)return null;
-  return freq;
+  if(!peaks.length)return {f:null,rms};
+  let mx=0;peaks.forEach(t=>{if(ns[t]>mx)mx=ns[t];});if(mx<0.8)return {f:null,rms};
+  const T=peaks.find(t=>ns[t]>=0.9*mx),a=ns[T-1],b=ns[T],c=ns[T+1],d=a-2*b+c,sh=d?0.5*(a-c)/d:0,f=sr/(T+sh);
+  return {f:(f>=75&&f<=1100)?f:null,rms};
 }
 
-/* ---------- Mic ---------- */
-let analyser=null,stream=null,running=false,buf=null;
-$("micBtn").addEventListener("click",async()=>{
-  if(running){stopMic();return;}
-  try{
-    const c=getCtx();
-    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
-    const src=c.createMediaStreamSource(stream);
-    analyser=c.createAnalyser();analyser.fftSize=2048;src.connect(analyser);
-    buf=new Float32Array(analyser.fftSize);
-    running=true;$("micBtn").textContent="Mikrofon välja";$("micBtn").classList.add("on");showMsg("");
-    loop();
-  }catch(err){
-    showMsg("Mikrofon ei käivitunud. Luba brauseris mikrofoni kasutamine. Kui avasid faili telefoni Failide äpist, ava see hoopis Safaris või Chrome'is veebiaadressilt (vt juhend).");
+/* ---------- score ---------- */
+let osmd=null,xmlText=null,targets=[],status=[],idx=0,voiceOpts=[],curOpt=0;
+function osmdInit(){
+  if(!window.opensheetmusicdisplay){showMsg("Noodilugeja ei laadinud. Kontrolli internetiühendust ja laadi leht uuesti.");return null;}
+  const o=new opensheetmusicdisplay.OpenSheetMusicDisplay("score",{autoResize:false,backend:"svg",drawTitle:true,drawPartNames:false,followCursor:true,cursorsOptions:[{type:0,color:"#2F5BEA",alpha:0.35,follow:true}]});
+  return o;
+}
+async function readFile(file){
+  const buf=await file.arrayBuffer();const u8=new Uint8Array(buf);
+  if(u8[0]===0x50&&u8[1]===0x4B){
+    if(!window.JSZip)throw new Error("zip");
+    const zip=await JSZip.loadAsync(buf);let path=null;
+    const cont=zip.file("META-INF/container.xml");
+    if(cont){const cx=new DOMParser().parseFromString(await cont.async("string"),"application/xml");const rf=cx.querySelector("rootfile");if(rf)path=rf.getAttribute("full-path");}
+    if(!path){const f=Object.keys(zip.files).find(n=>/\.(xml|musicxml)$/i.test(n)&&!n.startsWith("META-INF"));path=f;}
+    return await zip.file(path).async("string");
   }
-});
-function stopMic(){
-  running=false;if(stream)stream.getTracks().forEach(t=>t.stop());
-  $("micBtn").textContent="Mikrofon sisse";$("micBtn").classList.remove("on");
-  setNow(null);lightKey(null);
+  return new TextDecoder().decode(u8);
 }
-
-/* ---------- State ---------- */
-const trail=[];const TRAIL_SEC=6;
-const recent=[];
-let seg={note:null,since:0,sumC:0,cnt:0,chip:null},lastVoice=0,sepAdded=true;
-
-function setNow(m){
-  if(m===null){$("noteBig").textContent="–";$("status").innerHTML="&nbsp;";$("needle").style.left="50%";return;}
-  const r=Math.round(m),cents=Math.round((m-r)*100);
-  const oct=Math.floor(r/12)-1;
-  $("noteBig").textContent=NAMES[((r%12)+12)%12];
-  $("octave").textContent=OCT[oct]||("oktav "+oct);
-  let s,col;const ac=Math.abs(cents);
-  if(ac<=15){s="Täpne!";col="var(--good)";}
-  else if(ac<=35){s=cents<0?"Natuke madal":"Natuke kõrge";col="var(--near)";}
-  else{s=cents<0?"Madal":"Kõrge";col="var(--off)";}
-  $("status").textContent=s;$("status").style.color=col;
-  $("needle").style.left=(50+Math.max(-50,Math.min(50,cents)))+"%";
-  lightKey(r,ac>15);
-}
-function chipColor(avg){return avg<=15?"var(--good)":avg<=35?"var(--near)":"var(--off)";}
-function addChip(r){
-  const c=document.createElement("span");c.className="chip";c.textContent=NAMES[((r%12)+12)%12];
-  c.style.background="var(--muted)";$("chips").appendChild(c);
-  const box=$("chips");box.scrollTop=box.scrollHeight;
-  while(box.children.length>80)box.removeChild(box.firstChild);
-  return c;
-}
-$("clearBtn").addEventListener("click",()=>{$("chips").innerHTML="";seg={note:null,since:0,sumC:0,cnt:0,chip:null};sepAdded=true;});
-
-function track(m,now){
-  if(m===null){
-    if(!sepAdded&&now-lastVoice>700){const s=document.createElement("span");s.className="sep";$("chips").appendChild(s);sepAdded=true;}
-    seg.note=null;return;
-  }
-  lastVoice=now;
-  const r=Math.round(m),cents=Math.abs((m-r)*100);
-  if(r!==seg.note){seg={note:r,since:now,sumC:0,cnt:0,chip:null};}
-  seg.sumC+=cents;seg.cnt++;
-  if(!seg.chip&&now-seg.since>=160){seg.chip=addChip(r);sepAdded=false;}
-  if(seg.chip)seg.chip.style.background=chipColor(seg.sumC/seg.cnt);
-}
-
-function loop(){
-  if(!running)return;
-  analyser.getFloatTimeDomainData(buf);
-  const f=detectPitch(buf,ctx.sampleRate);
-  const now=performance.now();
-  let m=null;
-  if(f){
-    const raw=69+12*Math.log2(f/A4);
-    recent.push(raw);if(recent.length>5)recent.shift();
-    const s=[...recent].sort((a,b)=>a-b);m=s[Math.floor(s.length/2)];
-  }else{recent.length=0;}
-  trail.push({t:now,m});
-  while(trail.length&&now-trail[0].t>TRAIL_SEC*1000)trail.shift();
-  setNow(m);if(m===null)lightKey(null);
-  track(m,now);
-  drawStaff(now);
-  requestAnimationFrame(loop);
-}
-
-/* ---------- Staff drawing ---------- */
-const STEP=[0,0.5,1,1.5,2,3,3.5,4,4.5,5,5.5,6];
-function midiToStep(m){
-  const lo=Math.floor(m),fr=m-lo;
-  const s=r=>{const pc=((r%12)+12)%12;return (Math.floor(r/12)-1)*7+STEP[pc];};
-  return s(lo)+(s(lo+1)-s(lo))*fr;
-}
-function drawStaff(now){
-  const cv=$("staff"),dpr=window.devicePixelRatio||1;
-  const W=cv.clientWidth,H=cv.clientHeight;
-  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}
-  const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
-  const top=25,bot=45; // steps shown: G3(25)..E6(44)
-  const y=st=>H-8-(st-top)/(bot-top)*(H-16);
-  const left=54;
-  // staff lines E4 G4 H4 D5 F5
-  g.strokeStyle="#2A2E3C";g.lineWidth=1.3;
-  [30,32,34,36,38].forEach(s=>{g.beginPath();g.moveTo(left,y(s));g.lineTo(W-6,y(s));g.stroke();});
-  // ledger hints
-  g.setLineDash([4,5]);g.strokeStyle="#C9C2B6";g.lineWidth=1;
-  [26,28,40,42,44].forEach(s=>{g.beginPath();g.moveTo(left,y(s));g.lineTo(W-6,y(s));g.stroke();});
-  g.setLineDash([]);
-  // labels
-  g.fillStyle="#6B7080";g.font="11px -apple-system,sans-serif";g.textAlign="right";g.textBaseline="middle";
-  const lbl={26:"A",28:"C¹",30:"E¹",32:"G¹",34:"H¹",36:"D²",38:"F²",40:"A²",42:"C³",44:"E³"};
-  Object.entries(lbl).forEach(([s,t])=>g.fillText(t,left-8,y(+s)));
-  // treble clef glyph
-  g.fillStyle="#2A2E3C";g.font=Math.round((y(30)-y(38))*1.25)+"px serif";g.textAlign="left";g.textBaseline="alphabetic";
-  g.fillText("\u{1D11E}",left+2,y(29));
-  // trail
-  const x0=left+34,span=W-6-x0;
-  const xOf=t=>x0+span*(1-(now-t)/(TRAIL_SEC*1000));
-  g.lineWidth=4;g.lineCap="round";
-  let prev=null;
-  for(const p of trail){
-    if(p.m===null){prev=null;continue;}
-    const st=midiToStep(p.m);if(st<top-1||st>bot+1){prev=null;continue;}
-    const x=xOf(p.t),yy=y(st);
-    const ac=Math.abs((p.m-Math.round(p.m))*100);
-    g.strokeStyle=ac<=15?"#1F9D55":ac<=35?"#E0A100":"#E4572E";
-    if(prev){g.beginPath();g.moveTo(prev[0],prev[1]);g.lineTo(x,yy);g.stroke();}
-    prev=[x,yy];
-  }
-  const last=trail[trail.length-1];
-  if(last&&last.m!==null){
-    const st=midiToStep(last.m);
-    if(st>=top-1&&st<=bot+1){g.fillStyle="#2F5BEA";g.beginPath();g.arc(xOf(last.t),y(st),7,0,Math.PI*2);g.fill();}
-  }
-}
-window.addEventListener("resize",()=>drawStaff(performance.now()));
-setTimeout(()=>drawStaff(performance.now()),50);
-
-/* ---------- Sheet (PDF / image) ---------- */
 $("file").addEventListener("change",async e=>{
   const f=e.target.files&&e.target.files[0];if(!f)return;
-  const sheet=$("sheet");sheet.innerHTML='<div id="sheetEmpty"><div>Laadin…</div></div>';
-  try{
-    if(f.type.startsWith("image/")){
-      const img=new Image();img.src=URL.createObjectURL(f);sheet.innerHTML="";sheet.appendChild(img);return;
-    }
-    if(!window.pdfjsLib)throw new Error("pdfjs");
-    pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-    const data=new Uint8Array(await f.arrayBuffer());
-    const pdf=await pdfjsLib.getDocument({data}).promise;
-    sheet.innerHTML="";
-    const width=Math.max(320,sheet.clientWidth-16),dpr=Math.min(window.devicePixelRatio||1,2.5);
-    for(let i=1;i<=pdf.numPages;i++){
-      const page=await pdf.getPage(i);
-      const v1=page.getViewport({scale:1});
-      const vp=page.getViewport({scale:(width/v1.width)*dpr});
-      const cv=document.createElement("canvas");cv.width=vp.width;cv.height=vp.height;
-      sheet.appendChild(cv);
-      await page.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;
-    }
-  }catch(err){
-    sheet.innerHTML='<div id="sheetEmpty"><div style="color:var(--ink);font-weight:600">PDF-i avamine ebaõnnestus</div><div>Kontrolli internetiühendust (PDF-i lugeja laaditakse netist) või ava noodist tehtud pilt.</div></div>';
-  }
+  if(/\.pdf$/i.test(f.name)){showMsg("See on PDF. Lauluabiline vajab MusicXML-faili (.mxl või .musicxml).");return;}
+  try{const x=await readFile(f);store("la_xml",x);store("la_opt","0");await openScore(x,0);}
+  catch(err){showMsg("Faili avamine ebaõnnestus. Kas see on MusicXML-fail (.mxl / .musicxml)?");}
 });
+async function openScore(x,opt){
+  showMsg("");xmlText=x;
+  if(!osmd)osmd=osmdInit();if(!osmd)return;
+  await osmd.load(x);
+  $("empty").style.display="none";
+  // voice options
+  voiceOpts=[];
+  osmd.Sheet.Instruments.forEach((ins,i)=>{
+    const names=(ins.Name||"Partii "+(i+1)).split(/\n|\r|\//).map(s=>s.trim()).filter(Boolean);
+    const vs=ins.Voices.map(v=>v.VoiceId);
+    vs.forEach((vid,j)=>{
+      let label=vs.length===1?names.join(" "):(names.length===vs.length?names[j]:(names.join(" ")+" – hääl "+(j+1)));
+      label=label.replace(/^S\.?$/,"Sopran").replace(/^A\.?$/,"Alt").replace(/^T\.?$/,"Tenor").replace(/^B\.?$/,"Bass");
+      voiceOpts.push({ins:i,vid,label});
+    });
+  });
+  const sel=$("voiceSel");sel.innerHTML="";
+  voiceOpts.forEach((v,i)=>{const o=document.createElement("option");o.value=i;o.textContent=v.label;sel.appendChild(o);});
+  curOpt=Math.min(opt||0,voiceOpts.length-1);sel.value=curOpt;sel.disabled=false;
+  setupVoice();
+}
+$("voiceSel").addEventListener("change",e=>{curOpt=+e.target.value;store("la_opt",String(curOpt));setupVoice();});
+
+function render(){
+  const w=$("scoreWrap").clientWidth;osmd.zoom=w<600?0.62:w<900?0.8:1.0;
+  osmd.render();osmd.cursor.show();
+}
+function setupVoice(){
+  stopPlay();
+  const v=voiceOpts[curOpt];
+  osmd.Sheet.Instruments.forEach((ins,i)=>{ins.Visible=(i===v.ins);});
+  render();
+  // collect targets by walking the cursor
+  targets=[];const c=osmd.cursor;c.reset();let step=0;
+  while(!c.Iterator.EndReached){
+    const ns=c.NotesUnderCursor().filter(n=>!n.isRest()&&n.ParentVoiceEntry&&n.ParentVoiceEntry.ParentVoice.VoiceId===v.vid);
+    const fresh=ns.filter(n=>!(n.NoteTie&&n.NoteTie.StartNote!==n));
+    if(fresh.length){
+      fresh.sort((a,b)=>b.halfTone-a.halfTone);const n=fresh[0];
+      let len=n.Length.RealValue;if(n.NoteTie&&n.NoteTie.Notes)len=n.NoteTie.Notes.reduce((s,x)=>s+x.Length.RealValue,0);
+      const also=c.NotesUnderCursor().filter(x=>x!==n&&!x.isRest()&&x.halfTone===n.halfTone);
+      targets.push({step,midi:n.halfTone+12,len,ts:c.Iterator.currentTimeStamp.RealValue,note:n,also});
+    }
+    c.Iterator.moveToNext();step++;
+  }
+  status=targets.map(()=>null);
+  ["micBtn","playBtn","restartBtn","prevBtn","nextBtn","giveBtn"].forEach(id=>$(id).disabled=!targets.length);
+  if(!targets.length)showMsg("Selles hääles ei leidnud noote. Vali teine hääl.");
+  goTo(0);
+}
+function goTo(i){
+  idx=Math.max(0,Math.min(i,targets.length));held=0;active=false;wrongMs=0;wrongNote=null;onset=false;
+  const c=osmd.cursor;c.reset();
+  const step=idx<targets.length?targets[idx].step:(targets.length?targets[targets.length-1].step:0);
+  for(let s=0;s<step;s++)c.Iterator.moveToNext();
+  c.update();
+  $("targetNote").textContent=idx<targets.length?noteLabel(targets[idx].midi):"✓";
+  updateProgress();
+}
+function colorNote(t,color){
+  [t.note].concat(t.also||[]).forEach(nn=>{try{const gn=osmd.rules.GNote(nn);const g=gn&&gn.getSVGGElement&&gn.getSVGGElement();if(!g)return;
+    g.querySelectorAll("path,rect,ellipse").forEach(p=>{p.setAttribute("fill",color);p.setAttribute("stroke",color);p.style.fill=color;p.style.stroke=color;});}catch(e){}});
+}
+function setStatus(i,s){status[i]=s;colorNote(targets[i],s==="good"?COL.good:s==="fixed"?COL.fixed:COL.bad);updateProgress();}
+function updateProgress(){
+  const done=status.filter(s=>s).length,good=status.filter(s=>s==="good").length;
+  $("progress").textContent=targets.length?`${Math.min(idx+1,targets.length)}/${targets.length} · õigeid ${good}`:"";
+}
+function recolorAll(){status.forEach((s,i)=>{if(s)colorNote(targets[i],s==="good"?COL.good:s==="fixed"?COL.fixed:COL.bad);});}
+window.addEventListener("resize",()=>{if(!osmd||!targets.length)return;clearTimeout(window._rt);window._rt=setTimeout(()=>{const k=idx;render();goTo(k);recolorAll();},300);});
+
+/* ---------- controls ---------- */
+$("restartBtn").addEventListener("click",()=>{stopPlay();status=targets.map(()=>null);render();goTo(0);});
+$("prevBtn").addEventListener("click",()=>{stopPlay();goTo(idx-1);});
+$("nextBtn").addEventListener("click",()=>{stopPlay();goTo(idx+1);});
+$("giveBtn").addEventListener("click",()=>{if(idx<targets.length)tone(targets[idx].midi,0,1.2);});
+$("tempo").addEventListener("input",e=>{$("tempoVal").textContent=e.target.value;});
+$("sumAgain").addEventListener("click",()=>{$("summary").style.display="none";status=targets.map(()=>null);render();goTo(0);});
+
+let playTimers=[];
+function stopPlay(){playTimers.forEach(clearTimeout);playTimers=[];$("playBtn").textContent="Mängi ette";playing=false;}
+let playing=false;
+$("playBtn").addEventListener("click",()=>{
+  if(playing){stopPlay();return;}
+  if(idx>=targets.length)goTo(0);
+  playing=true;$("playBtn").textContent="Stopp";
+  const c=ac(),q=60/(+$("tempo").value),whole=4*q,t0=c.currentTime+0.15,start=targets[idx].ts,from=idx;
+  for(let i=from;i<targets.length;i++){
+    const tg=targets[i],at=(tg.ts-start)*whole;
+    tone(tg.midi,t0+at,tg.len*whole*0.95);
+    playTimers.push(setTimeout(()=>{if(playing){goTo(i);}},at*1000+150));
+  }
+  const last=targets[targets.length-1];
+  playTimers.push(setTimeout(()=>{stopPlay();goTo(from);},((last.ts-start)+last.len)*whole*1000+400));
+});
+
+/* ---------- mic + following ---------- */
+let stream=null,analyser=null,buf=null,running=false;
+let held=0,active=false,wrongMs=0,wrongNote=null,onset=false,silentFrames=0,lastT=0;
+const recent=[];
+$("micBtn").addEventListener("click",async()=>{
+  if(running){stopMic();return;}
+  stopPlay();
+  try{
+    const c=ac();
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    const src=c.createMediaStreamSource(stream);analyser=c.createAnalyser();analyser.fftSize=2048;src.connect(analyser);
+    buf=new Float32Array(2048);running=true;$("micBtn").textContent="Lõpeta";$("micBtn").classList.add("on");showMsg("");
+    lastT=performance.now();requestAnimationFrame(loop);
+  }catch(e){showMsg("Mikrofon ei käivitunud. Luba mikrofoni kasutamine (iPhone: Seaded → Safari → Mikrofon). Leht peab olema avatud https-aadressilt.");}
+});
+function stopMic(){running=false;if(stream)stream.getTracks().forEach(t=>t.stop());$("micBtn").textContent="Laula";$("micBtn").classList.remove("on");setSung(null);}
+
+function setSung(m){
+  if(m===null){$("sungNote").textContent="–";$("sungNote").style.color="";$("needle").style.left="50%";return;}
+  $("sungNote").textContent=noteLabel(m);
+  const tg=targets[idx];
+  if(tg){
+    // distance to target in cents (octave-tolerant)
+    let d=(m-tg.midi)*100;const oct=Math.round(d/1200);if(Math.abs(oct)===1&&Math.abs(d-oct*1200)<150)d-=oct*1200;
+    const dd=Math.max(-50,Math.min(50,d));$("needle").style.left=(50+dd)+"%";
+    $("sungNote").style.color=Math.abs(d)<=35?COL.good:Math.abs(d)<=100?"#E0A100":COL.bad;
+  }
+}
+function feedback(t,color){$("feedback").textContent=t;$("feedback").style.color=color||"";}
+function matchesMidi(r,target){return r===target||r===target+12||r===target-12;}
+
+function loop(now){
+  if(!running)return;
+  const dt=Math.min(100,now-lastT);lastT=now;
+  analyser.getFloatTimeDomainData(buf);
+  const {f}=detect(buf,ctx.sampleRate);
+  let m=null;
+  if(f){const raw=69+12*Math.log2(f/440);recent.push(raw);if(recent.length>5)recent.shift();const s=[...recent].sort((a,b)=>a-b);m=s[s.length>>1];}
+  else recent.length=0;
+  if(m===null){silentFrames++;if(silentFrames>=3)onset=true;}else silentFrames=0;
+  setSung(m);
+  if(idx<targets.length)follow(m,dt);
+  requestAnimationFrame(loop);
+}
+let stableNote=null,stableMs=0;
+function follow(m,dt){
+  const r=m===null?null:Math.round(m);
+  if(r!==null&&r===stableNote)stableMs+=dt;else{stableNote=r;stableMs=0;}
+  const tg=targets[idx],nx=targets[idx+1];
+  if(r===null)return;
+  if(!active){
+    if(matchesMidi(r,tg.midi)&&stableMs>=70){
+      setStatus(idx,status[idx]==="bad"?"fixed":"good");active=true;held=0;onset=false;wrongMs=0;
+      feedback(status[idx]==="good"?"Õige!":"Parandatud!",COL.good);return;
+    }
+    if(!matchesMidi(r,tg.midi)&&stableMs>=320){
+      // maybe the child already moved on: look ahead up to 2 notes
+      for(let k=1;k<=2&&idx+k<targets.length;k++){
+        if(matchesMidi(r,targets[idx+k].midi)){
+          for(let j=idx;j<idx+k;j++)if(!status[j])setStatus(j,"bad");
+          idx+=k;goToKeep();setStatus(idx,"good");active=true;held=0;onset=false;feedback("Õige!",COL.good);return;
+        }
+      }
+      if(status[idx]!=="bad"){setStatus(idx,"bad");}
+      const up=r>tg.midi?"liiga kõrge":"liiga madal";
+      feedback(`Noodis on ${noteLabel(tg.midi)}, sina laulad ${noteLabel(r)} – ${up}`,COL.bad);
+    }
+    return;
+  }
+  // active: current note is being sung
+  held+=dt;
+  if(matchesMidi(r,tg.midi)){
+    const q=60/(+$("tempo").value)*1000,durMs=tg.len*4*q;
+    if(nx&&nx.midi===tg.midi&&(onset||held>Math.max(500,1.6*durMs))&&stableMs>=50){
+      advance();setStatus(idx,"good");active=true;held=0;onset=false;feedback("Õige!",COL.good);
+    }else if(!nx&&held>400){advance();}
+    return;
+  }
+  if(nx&&matchesMidi(r,nx.midi)&&stableMs>=70){advance();setStatus(idx,"good");active=true;held=0;onset=false;feedback("Õige!",COL.good);return;}
+  if(stableMs>=320){
+    for(let k=2;k<=2&&idx+k<targets.length;k++){
+      if(matchesMidi(r,targets[idx+k].midi)){
+        for(let j=idx+1;j<idx+k;j++)if(!status[j])setStatus(j,"bad");
+        idx+=k;goToKeep();setStatus(idx,"good");active=true;held=0;onset=false;feedback("Õige!",COL.good);return;
+      }
+    }
+    if(nx){advance();active=false;if(status[idx]!=="bad")setStatus(idx,"bad");
+      feedback(`Noodis on ${noteLabel(nx.midi)}, sina laulad ${noteLabel(r)} – ${r>nx.midi?"liiga kõrge":"liiga madal"}`,COL.bad);}
+  }
+}
+function goToKeep(){const k=idx;const st=status;goTo(k);status=st;}
+function advance(){
+  if(idx+1>=targets.length){finish();return;}
+  idx++;const c=osmd.cursor;const steps=targets[idx].step-targets[idx-1].step;
+  for(let s=0;s<steps;s++)c.Iterator.moveToNext();c.update();
+  $("targetNote").textContent=noteLabel(targets[idx].midi);updateProgress();
+}
+function finish(){
+  idx=targets.length;active=false;stopMic();
+  const good=status.filter(s=>s==="good").length,fixed=status.filter(s=>s==="fixed").length,n=targets.length;
+  $("sumPct").textContent=Math.round(100*good/n)+"%";
+  $("sumText").textContent=`${good} nooti ${n}-st kohe õigesti`+(fixed?`, ${fixed} parandatud`:"")+". Punased noodid on kohad, mida harjutada.";
+  $("summary").style.display="flex";$("targetNote").textContent="✓";
+}
+
+/* ---------- restore last song ---------- */
+const saved=load("la_xml");
+if(saved){openScore(saved,+(load("la_opt")||0)).catch(()=>{});}
 })();
 </script>
 </body>
