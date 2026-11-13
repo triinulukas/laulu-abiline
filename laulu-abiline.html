@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lauluabiline</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --bg:#FAF6EF; --card:#FFFFFF; --ink:#1E2230; --muted:#6B7080; --line:#E6E0D6;
+    --accent:#2F5BEA; --good:#1F9D55; --near:#E0A100; --off:#E4572E;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--card)}
+  header h1{font-size:18px;margin:0 8px 0 0;font-weight:700;letter-spacing:.2px}
+  button,.filebtn{font:inherit;font-size:15px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+    padding:9px 14px;border-radius:999px;cursor:pointer;user-select:none;-webkit-user-select:none}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary.on{background:var(--off);border-color:var(--off)}
+  .filebtn input{display:none}
+  .hint{color:var(--muted);font-size:13px}
+  main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;padding:12px;height:calc(100% - 62px)}
+  @media (max-width:820px){ main{grid-template-columns:minmax(0,1fr);height:auto} #sheet{height:46vh} }
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px}
+  #sheet{overflow:auto;padding:8px;min-height:200px;-webkit-overflow-scrolling:touch}
+  #sheet canvas,#sheet img{display:block;width:100%;height:auto;margin:0 auto 8px;border-radius:6px}
+  #sheetEmpty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);gap:8px;padding:20px}
+  #right{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
+  #now{display:flex;align-items:center;gap:16px;padding:14px 18px}
+  #noteBig{font-size:64px;font-weight:800;min-width:120px;text-align:center;line-height:1}
+  #noteInfo{flex:1}
+  #octave{font-size:15px;color:var(--muted)}
+  #status{font-size:20px;font-weight:700;margin:6px 0 8px}
+  .meter{position:relative;height:14px;border-radius:7px;background:linear-gradient(90deg,var(--off) 0 25%,var(--near) 25% 38%,var(--good) 38% 62%,var(--near) 62% 75%,var(--off) 75%)}
+  .meter i{position:absolute;top:-5px;width:4px;height:24px;background:var(--ink);border-radius:2px;left:50%;transform:translateX(-2px);transition:left .08s}
+  .meterlbl{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:4px}
+  #staffWrap{padding:6px 8px;flex:1;min-height:180px;display:flex}
+  #staff{width:100%;height:100%;min-height:170px}
+  #phraseCard{padding:10px 12px}
+  #phraseHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  #phraseHead b{font-size:14px}
+  #chips{display:flex;flex-wrap:wrap;gap:6px;min-height:34px;max-height:96px;overflow:auto}
+  .chip{padding:5px 10px;border-radius:999px;font-weight:700;font-size:15px;color:#fff}
+  .sep{width:2px;background:var(--line);margin:0 4px;border-radius:1px}
+  #pianoCard{padding:8px;overflow-x:auto;min-width:0}
+  #piano{position:relative;height:120px;min-width:520px;touch-action:manipulation}
+  .wk,.bk{position:absolute;top:0;border:1px solid #C9C2B6;border-radius:0 0 8px 8px;cursor:pointer}
+  .wk{background:#fff;height:100%;z-index:1;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;font-size:12px;color:var(--muted)}
+  .bk{background:#232634;height:62%;z-index:2;border-color:#232634}
+  .wk.press{background:#DCE5FF}.bk.press{background:#4A5578}
+  .wk.sung{background:#D6F5E2}.bk.sung{background:#1F9D55}
+  .wk.sung.near{background:#FFF0C2}.bk.sung.near{background:#E0A100}
+  .wk.c4::after{content:"";position:absolute;top:8px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  #msg{display:none;margin:10px 12px 0;padding:10px 14px;border-radius:12px;background:#FFF1EC;border:1px solid #F4C3B4;color:#8A2E14;font-size:14px}
+  @media (max-width:820px){#noteBig{font-size:52px;min-width:90px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Lauluabiline</h1>
+  <label class="filebtn">Ava noot (PDF või pilt)<input id="file" type="file" accept="application/pdf,image/*"></label>
+  <button id="micBtn" class="primary">Mikrofon sisse</button>
+  <span class="hint">Vajuta klaverile, et kuulda algusnooti</span>
+</header>
+<div id="msg"></div>
+<main>
+  <section id="sheet" class="card">
+    <div id="sheetEmpty">
+      <div style="font-size:17px;font-weight:600;color:var(--ink)">Ava siin oma noot</div>
+      <div>Vali PDF või noodilehe foto. Fail jääb sinu seadmesse.</div>
+    </div>
+  </section>
+  <section id="right">
+    <div id="now" class="card">
+      <div id="noteBig">–</div>
+      <div id="noteInfo">
+        <div id="octave">Laula, ja siin näed nooti</div>
+        <div id="status">&nbsp;</div>
+        <div class="meter"><i id="needle"></i></div>
+        <div class="meterlbl"><span>madal</span><span>täpne</span><span>kõrge</span></div>
+      </div>
+    </div>
+    <div id="staffWrap" class="card"><canvas id="staff"></canvas></div>
+    <div id="phraseCard" class="card">
+      <div id="phraseHead"><b>Lauldud noodid</b><button id="clearBtn" style="padding:5px 12px;font-size:13px">Tühjenda</button></div>
+      <div id="chips"></div>
+    </div>
+    <div id="pianoCard" class="card"><div id="piano"></div></div>
+  </section>
+</main>
+<script>
+(function(){
+"use strict";
+const NAMES=["C","Cis","D","Dis","E","F","Fis","G","Gis","A","B","H"];
+const OCT={2:"suur oktav",3:"väike oktav",4:"1. oktav",5:"2. oktav",6:"3. oktav"};
+const A4=440;
+const $=id=>document.getElementById(id);
+function showMsg(t){const m=$("msg");m.textContent=t;m.style.display=t?"block":"none";}
+
+/* ---------- Audio ---------- */
+let ctx=null;
+function getCtx(){
+  if(!ctx){const AC=window.AudioContext||window.webkitAudioContext;ctx=new AC();}
+  if(ctx.state==="suspended")ctx.resume();
+  return ctx;
+}
+function midiToFreq(m){return A4*Math.pow(2,(m-69)/12);}
+function playNote(m){
+  const c=getCtx(),t=c.currentTime,f=midiToFreq(m);
+  const out=c.createGain();out.gain.setValueAtTime(0.0001,t);
+  out.gain.exponentialRampToValueAtTime(0.35,t+0.008);
+  out.gain.exponentialRampToValueAtTime(0.0001,t+1.8);
+  out.connect(c.destination);
+  [[1,1],[2,0.45],[3,0.18],[4,0.09]].forEach(([h,a])=>{
+    const o=c.createOscillator(),g=c.createGain();
+    o.type=h===1?"triangle":"sine";o.frequency.value=f*h;g.gain.value=a;
+    o.connect(g);g.connect(out);o.start(t);o.stop(t+1.9);
+  });
+}
+
+/* ---------- Piano ---------- */
+const LOW=55,HIGH=84; // G3 .. C6
+const keyEls={};
+(function buildPiano(){
+  const p=$("piano");const whites=[];
+  for(let m=LOW;m<=HIGH;m++){if([0,2,4,5,7,9,11].includes(m%12))whites.push(m);}
+  const w=100/whites.length;
+  whites.forEach((m,i)=>{
+    const d=document.createElement("div");d.className="wk"+(m===60?" c4":"");
+    d.style.left=(i*w)+"%";d.style.width=w+"%";d.textContent=NAMES[m%12]+(m%12===0?(m/12-1-3):"");
+    if(m%12!==0)d.textContent=NAMES[m%12];
+    else d.textContent="C"+(m===60?"¹":m===72?"²":m===84?"³":"");
+    keyEls[m]=d;p.appendChild(d);
+  });
+  for(let m=LOW;m<=HIGH;m++){
+    if([1,3,6,8,10].includes(m%12)){
+      const leftWhite=whites.indexOf(m-1);if(leftWhite<0)continue;
+      const d=document.createElement("div");d.className="bk";
+      d.style.left=((leftWhite+1)*w-w*0.3)+"%";d.style.width=(w*0.6)+"%";
+      keyEls[m]=d;p.appendChild(d);
+    }
+  }
+  Object.entries(keyEls).forEach(([m,el])=>{
+    const down=e=>{e.preventDefault();playNote(+m);el.classList.add("press");};
+    const up=()=>el.classList.remove("press");
+    el.addEventListener("pointerdown",down);
+    el.addEventListener("pointerup",up);el.addEventListener("pointerleave",up);el.addEventListener("pointercancel",up);
+  });
+})();
+let litKey=null;
+function lightKey(m,near){
+  if(litKey!==null&&keyEls[litKey])keyEls[litKey].classList.remove("sung","near");
+  litKey=m;
+  if(m!==null&&keyEls[m]){keyEls[m].classList.add("sung");if(near)keyEls[m].classList.add("near");}
+}
+
+/* ---------- Pitch detection (McLeod) ---------- */
+function detectPitch(buf,sr){
+  const n=buf.length;let rms=0;for(let i=0;i<n;i++)rms+=buf[i]*buf[i];rms=Math.sqrt(rms/n);
+  if(rms<0.012)return null;
+  const minLag=Math.floor(sr/1100),maxLag=Math.min(Math.floor(sr/75),n-1);
+  const nsdf=new Float32Array(maxLag+1);
+  for(let tau=1;tau<=maxLag;tau++){
+    let acf=0,m=0;
+    for(let i=0;i<n-tau;i++){const a=buf[i],b=buf[i+tau];acf+=a*b;m+=a*a+b*b;}
+    nsdf[tau]=m>0?2*acf/m:0;
+  }
+  const peaks=[];let pos=false,best=-1,bestT=0;
+  for(let t=2;t<maxLag;t++){
+    if(nsdf[t-1]<=0&&nsdf[t]>0){pos=true;best=-1;}
+    else if(nsdf[t-1]>0&&nsdf[t]<=0&&pos){if(best>0&&bestT>=minLag)peaks.push(bestT);pos=false;}
+    if(pos&&nsdf[t]>best){best=nsdf[t];bestT=t;}
+  }
+  if(!peaks.length)return null;
+  let maxV=0;peaks.forEach(t=>{if(nsdf[t]>maxV)maxV=nsdf[t];});
+  if(maxV<0.8)return null;
+  const T=peaks.find(t=>nsdf[t]>=0.9*maxV);
+  const a=nsdf[T-1],b=nsdf[T],c=nsdf[T+1];const d=(a-2*b+c);
+  const shift=d!==0?0.5*(a-c)/d:0;
+  const freq=sr/(T+shift);
+  if(freq<75||freq>1100)return null;
+  return freq;
+}
+
+/* ---------- Mic ---------- */
+let analyser=null,stream=null,running=false,buf=null;
+$("micBtn").addEventListener("click",async()=>{
+  if(running){stopMic();return;}
+  try{
+    const c=getCtx();
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    const src=c.createMediaStreamSource(stream);
+    analyser=c.createAnalyser();analyser.fftSize=2048;src.connect(analyser);
+    buf=new Float32Array(analyser.fftSize);
+    running=true;$("micBtn").textContent="Mikrofon välja";$("micBtn").classList.add("on");showMsg("");
+    loop();
+  }catch(err){
+    showMsg("Mikrofon ei käivitunud. Luba brauseris mikrofoni kasutamine. Kui avasid faili telefoni Failide äpist, ava see hoopis Safaris või Chrome'is veebiaadressilt (vt juhend).");
+  }
+});
+function stopMic(){
+  running=false;if(stream)stream.getTracks().forEach(t=>t.stop());
+  $("micBtn").textContent="Mikrofon sisse";$("micBtn").classList.remove("on");
+  setNow(null);lightKey(null);
+}
+
+/* ---------- State ---------- */
+const trail=[];const TRAIL_SEC=6;
+const recent=[];
+let seg={note:null,since:0,sumC:0,cnt:0,chip:null},lastVoice=0,sepAdded=true;
+
+function setNow(m){
+  if(m===null){$("noteBig").textContent="–";$("status").innerHTML="&nbsp;";$("needle").style.left="50%";return;}
+  const r=Math.round(m),cents=Math.round((m-r)*100);
+  const oct=Math.floor(r/12)-1;
+  $("noteBig").textContent=NAMES[((r%12)+12)%12];
+  $("octave").textContent=OCT[oct]||("oktav "+oct);
+  let s,col;const ac=Math.abs(cents);
+  if(ac<=15){s="Täpne!";col="var(--good)";}
+  else if(ac<=35){s=cents<0?"Natuke madal":"Natuke kõrge";col="var(--near)";}
+  else{s=cents<0?"Madal":"Kõrge";col="var(--off)";}
+  $("status").textContent=s;$("status").style.color=col;
+  $("needle").style.left=(50+Math.max(-50,Math.min(50,cents)))+"%";
+  lightKey(r,ac>15);
+}
+function chipColor(avg){return avg<=15?"var(--good)":avg<=35?"var(--near)":"var(--off)";}
+function addChip(r){
+  const c=document.createElement("span");c.className="chip";c.textContent=NAMES[((r%12)+12)%12];
+  c.style.background="var(--muted)";$("chips").appendChild(c);
+  const box=$("chips");box.scrollTop=box.scrollHeight;
+  while(box.children.length>80)box.removeChild(box.firstChild);
+  return c;
+}
+$("clearBtn").addEventListener("click",()=>{$("chips").innerHTML="";seg={note:null,since:0,sumC:0,cnt:0,chip:null};sepAdded=true;});
+
+function track(m,now){
+  if(m===null){
+    if(!sepAdded&&now-lastVoice>700){const s=document.createElement("span");s.className="sep";$("chips").appendChild(s);sepAdded=true;}
+    seg.note=null;return;
+  }
+  lastVoice=now;
+  const r=Math.round(m),cents=Math.abs((m-r)*100);
+  if(r!==seg.note){seg={note:r,since:now,sumC:0,cnt:0,chip:null};}
+  seg.sumC+=cents;seg.cnt++;
+  if(!seg.chip&&now-seg.since>=160){seg.chip=addChip(r);sepAdded=false;}
+  if(seg.chip)seg.chip.style.background=chipColor(seg.sumC/seg.cnt);
+}
+
+function loop(){
+  if(!running)return;
+  analyser.getFloatTimeDomainData(buf);
+  const f=detectPitch(buf,ctx.sampleRate);
+  const now=performance.now();
+  let m=null;
+  if(f){
+    const raw=69+12*Math.log2(f/A4);
+    recent.push(raw);if(recent.length>5)recent.shift();
+    const s=[...recent].sort((a,b)=>a-b);m=s[Math.floor(s.length/2)];
+  }else{recent.length=0;}
+  trail.push({t:now,m});
+  while(trail.length&&now-trail[0].t>TRAIL_SEC*1000)trail.shift();
+  setNow(m);if(m===null)lightKey(null);
+  track(m,now);
+  drawStaff(now);
+  requestAnimationFrame(loop);
+}
+
+/* ---------- Staff drawing ---------- */
+const STEP=[0,0.5,1,1.5,2,3,3.5,4,4.5,5,5.5,6];
+function midiToStep(m){
+  const lo=Math.floor(m),fr=m-lo;
+  const s=r=>{const pc=((r%12)+12)%12;return (Math.floor(r/12)-1)*7+STEP[pc];};
+  return s(lo)+(s(lo+1)-s(lo))*fr;
+}
+function drawStaff(now){
+  const cv=$("staff"),dpr=window.devicePixelRatio||1;
+  const W=cv.clientWidth,H=cv.clientHeight;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}
+  const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
+  const top=25,bot=45; // steps shown: G3(25)..E6(44)
+  const y=st=>H-8-(st-top)/(bot-top)*(H-16);
+  const left=54;
+  // staff lines E4 G4 H4 D5 F5
+  g.strokeStyle="#2A2E3C";g.lineWidth=1.3;
+  [30,32,34,36,38].forEach(s=>{g.beginPath();g.moveTo(left,y(s));g.lineTo(W-6,y(s));g.stroke();});
+  // ledger hints
+  g.setLineDash([4,5]);g.strokeStyle="#C9C2B6";g.lineWidth=1;
+  [26,28,40,42,44].forEach(s=>{g.beginPath();g.moveTo(left,y(s));g.lineTo(W-6,y(s));g.stroke();});
+  g.setLineDash([]);
+  // labels
+  g.fillStyle="#6B7080";g.font="11px -apple-system,sans-serif";g.textAlign="right";g.textBaseline="middle";
+  const lbl={26:"A",28:"C¹",30:"E¹",32:"G¹",34:"H¹",36:"D²",38:"F²",40:"A²",42:"C³",44:"E³"};
+  Object.entries(lbl).forEach(([s,t])=>g.fillText(t,left-8,y(+s)));
+  // treble clef glyph
+  g.fillStyle="#2A2E3C";g.font=Math.round((y(30)-y(38))*1.25)+"px serif";g.textAlign="left";g.textBaseline="alphabetic";
+  g.fillText("\u{1D11E}",left+2,y(29));
+  // trail
+  const x0=left+34,span=W-6-x0;
+  const xOf=t=>x0+span*(1-(now-t)/(TRAIL_SEC*1000));
+  g.lineWidth=4;g.lineCap="round";
+  let prev=null;
+  for(const p of trail){
+    if(p.m===null){prev=null;continue;}
+    const st=midiToStep(p.m);if(st<top-1||st>bot+1){prev=null;continue;}
+    const x=xOf(p.t),yy=y(st);
+    const ac=Math.abs((p.m-Math.round(p.m))*100);
+    g.strokeStyle=ac<=15?"#1F9D55":ac<=35?"#E0A100":"#E4572E";
+    if(prev){g.beginPath();g.moveTo(prev[0],prev[1]);g.lineTo(x,yy);g.stroke();}
+    prev=[x,yy];
+  }
+  const last=trail[trail.length-1];
+  if(last&&last.m!==null){
+    const st=midiToStep(last.m);
+    if(st>=top-1&&st<=bot+1){g.fillStyle="#2F5BEA";g.beginPath();g.arc(xOf(last.t),y(st),7,0,Math.PI*2);g.fill();}
+  }
+}
+window.addEventListener("resize",()=>drawStaff(performance.now()));
+setTimeout(()=>drawStaff(performance.now()),50);
+
+/* ---------- Sheet (PDF / image) ---------- */
+$("file").addEventListener("change",async e=>{
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  const sheet=$("sheet");sheet.innerHTML='<div id="sheetEmpty"><div>Laadin…</div></div>';
+  try{
+    if(f.type.startsWith("image/")){
+      const img=new Image();img.src=URL.createObjectURL(f);sheet.innerHTML="";sheet.appendChild(img);return;
+    }
+    if(!window.pdfjsLib)throw new Error("pdfjs");
+    pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    const data=new Uint8Array(await f.arrayBuffer());
+    const pdf=await pdfjsLib.getDocument({data}).promise;
+    sheet.innerHTML="";
+    const width=Math.max(320,sheet.clientWidth-16),dpr=Math.min(window.devicePixelRatio||1,2.5);
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const v1=page.getViewport({scale:1});
+      const vp=page.getViewport({scale:(width/v1.width)*dpr});
+      const cv=document.createElement("canvas");cv.width=vp.width;cv.height=vp.height;
+      sheet.appendChild(cv);
+      await page.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;
+    }
+  }catch(err){
+    sheet.innerHTML='<div id="sheetEmpty"><div style="color:var(--ink);font-weight:600">PDF-i avamine ebaõnnestus</div><div>Kontrolli internetiühendust (PDF-i lugeja laaditakse netist) või ava noodist tehtud pilt.</div></div>';
+  }
+});
+})();
+</script>
+</body>
+</html>
