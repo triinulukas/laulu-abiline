@@ -41,6 +41,13 @@
   #summary{display:none;position:fixed;inset:0;z-index:20;background:rgba(30,34,48,.45);align-items:center;justify-content:center;padding:20px}
   #summary .card{background:#fff;border-radius:20px;padding:24px;max-width:360px;text-align:center}
   #summary .big{font-size:48px;font-weight:800;margin:6px 0}
+  #prizeBtn{font-size:15px}
+  #summary .trophy{font-size:96px;line-height:1;margin:4px 0;animation:pop .6s ease-out}
+  @keyframes pop{0%{transform:scale(.2) rotate(-20deg)}70%{transform:scale(1.15) rotate(6deg)}100%{transform:scale(1) rotate(0)}}
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:30}
+  #shelf{display:none;position:fixed;inset:0;z-index:25;background:rgba(30,34,48,.45);align-items:center;justify-content:center;padding:20px}
+  #shelf .card{background:#fff;border-radius:20px;padding:22px;max-width:380px;width:100%;text-align:center}
+  #shelfItems{font-size:40px;line-height:1.3;margin:10px 0;word-break:break-all}
 </style>
 </head>
 <body>
@@ -51,6 +58,7 @@
   <button id="micBtn" class="primary" disabled>Laula</button>
   <button id="playBtn" disabled>Mängi ette</button>
   <button id="restartBtn" disabled>Algusest</button>
+  <button id="prizeBtn" title="Minu auhinnad">🏆 <span id="prizeCount">0</span></button>
   <label class="tempo">Tempo <input id="tempo" type="range" min="40" max="160" value="90"><span id="tempoVal">90</span></label>
 </header>
 <div id="msg"></div>
@@ -72,7 +80,9 @@
     <button id="nextBtn" disabled>▶</button>
   </div>
 </div>
-<div id="summary"><div class="card"><div>Laul läbi!</div><div class="big" id="sumPct"></div><div id="sumText"></div><br><button class="primary" id="sumAgain">Proovi uuesti</button></div></div>
+<div id="summary"><div class="card"><div id="sumTitle">Laul läbi!</div><div class="trophy" id="sumTrophy"></div><div class="big" id="sumPct"></div><div id="sumText"></div><br><button class="primary" id="sumAgain">Proovi uuesti</button></div></div>
+<div id="shelf"><div class="card"><b>Minu auhinnad</b><div id="shelfItems"></div><div id="shelfText" style="color:#6B7080;font-size:14px"></div><br><button id="shelfClose">Sulge</button></div></div>
+<canvas id="confetti"></canvas>
 <script>
 (function(){
 "use strict";
@@ -99,7 +109,7 @@ function tone(midi,start,dur){
 /* ---------- pitch (McLeod) ---------- */
 function detect(buf,sr){
   const n=buf.length;let rms=0;for(let i=0;i<n;i++)rms+=buf[i]*buf[i];rms=Math.sqrt(rms/n);
-  if(rms<0.012)return {f:null,rms};
+  if(rms<0.006)return {f:null,rms};
   const minLag=Math.floor(sr/1100),maxLag=Math.min(Math.floor(sr/75),n-1),ns=new Float32Array(maxLag+1);
   for(let tau=1;tau<=maxLag;tau++){let a=0,m=0;for(let i=0;i<n-tau;i++){const x=buf[i],y=buf[i+tau];a+=x*y;m+=x*x+y*y;}ns[tau]=m>0?2*a/m:0;}
   const peaks=[];let pos=false,best=-1,bt=0;
@@ -202,7 +212,7 @@ function colorNote(t,color){
   [t.note].concat(t.also||[]).forEach(nn=>{try{const gn=osmd.rules.GNote(nn);const g=gn&&gn.getSVGGElement&&gn.getSVGGElement();if(!g)return;
     g.querySelectorAll("path,rect,ellipse").forEach(p=>{p.setAttribute("fill",color);p.setAttribute("stroke",color);p.style.fill=color;p.style.stroke=color;});}catch(e){}});
 }
-function setStatus(i,s){status[i]=s;colorNote(targets[i],s==="good"?COL.good:s==="fixed"?COL.fixed:COL.bad);updateProgress();}
+function setStatus(i,s){if(!targets[i])return;status[i]=s;colorNote(targets[i],s==="good"?COL.good:s==="fixed"?COL.fixed:COL.bad);updateProgress();}
 function updateProgress(){
   const done=status.filter(s=>s).length,good=status.filter(s=>s==="good").length;
   $("progress").textContent=targets.length?`${Math.min(idx+1,targets.length)}/${targets.length} · õigeid ${good}`:"";
@@ -237,7 +247,7 @@ $("playBtn").addEventListener("click",()=>{
 
 /* ---------- mic + following ---------- */
 let stream=null,analyser=null,buf=null,running=false;
-let held=0,active=false,wrongMs=0,wrongNote=null,onset=false,silentFrames=0,lastT=0;
+let held=0,active=false,wrongMs=0,wrongNote=null,onset=false,silentFrames=0,lastT=0,envPeak=0,dipped=false;
 const recent=[];
 $("micBtn").addEventListener("click",async()=>{
   if(running){stopMic();return;}
@@ -270,7 +280,9 @@ function loop(now){
   if(!running)return;
   const dt=Math.min(100,now-lastT);lastT=now;
   analyser.getFloatTimeDomainData(buf);
-  const {f}=detect(buf,ctx.sampleRate);
+  const {f,rms}=detect(buf,ctx.sampleRate);
+  envPeak=Math.max(rms,envPeak*0.97);
+  if(rms<0.5*envPeak)dipped=true;else if(dipped&&rms>0.8*envPeak){onset=true;dipped=false;}
   let m=null;
   if(f){const raw=69+12*Math.log2(f/440);recent.push(raw);if(recent.length>5)recent.shift();const s=[...recent].sort((a,b)=>a-b);m=s[s.length>>1];}
   else recent.length=0;
@@ -299,6 +311,7 @@ function follow(m,dt){
         }
       }
       if(status[idx]!=="bad"){setStatus(idx,"bad");}
+      if(stableMs>=1600){advance();active=false;stableMs=0;return;}
       const up=r>tg.midi?"liiga kõrge":"liiga madal";
       feedback(`Noodis on ${noteLabel(tg.midi)}, sina laulad ${noteLabel(r)} – ${up}`,COL.bad);
     }
@@ -308,10 +321,14 @@ function follow(m,dt){
   held+=dt;
   if(matchesMidi(r,tg.midi)){
     const q=60/(+$("tempo").value)*1000,durMs=tg.len*4*q;
-    if(nx&&nx.midi===tg.midi&&(onset||held>Math.max(500,1.6*durMs))&&stableMs>=50){
+    if(nx&&nx.midi===tg.midi&&(onset||held>Math.max(450,1.1*durMs))&&stableMs>=50){
       advance();setStatus(idx,"good");active=true;held=0;onset=false;feedback("Õige!",COL.good);
     }else if(!nx&&held>400){advance();}
     return;
+  }
+  const n2=targets[idx+2];
+  if(nx&&n2&&nx.midi===tg.midi&&matchesMidi(r,n2.midi)&&!matchesMidi(r,tg.midi)&&stableMs>=70){
+    advance();setStatus(idx,"good");advance();setStatus(idx,"good");active=true;held=0;onset=false;feedback("Õige!",COL.good);return;
   }
   if(nx&&matchesMidi(r,nx.midi)&&stableMs>=70){advance();setStatus(idx,"good");active=true;held=0;onset=false;feedback("Õige!",COL.good);return;}
   if(stableMs>=320){
@@ -332,12 +349,43 @@ function advance(){
   for(let s=0;s<steps;s++)c.Iterator.moveToNext();c.update();
   $("targetNote").textContent=noteLabel(targets[idx].midi);updateProgress();
 }
+const PRIZES=["🏆","🥇","⭐","🎖️","👑","🦄","🐉","🚀","🌈","🎸","💎","🦁"];
+function getPrizes(){try{return JSON.parse(load("la_prizes")||"[]")}catch(e){return []}}
+function showPrizeCount(){$("prizeCount").textContent=getPrizes().length;}
+showPrizeCount();
+$("prizeBtn").addEventListener("click",()=>{const p=getPrizes();
+  $("shelfItems").textContent=p.length?p.map(x=>x.e).join(" "):"";
+  $("shelfText").textContent=p.length?`Kokku ${p.length} auhinda. Iga veatult lauldud laul annab uue!`:"Veel pole auhindu. Laula üks laul algusest lõpuni veatult, siis saad esimese!";
+  $("shelf").style.display="flex";});
+$("shelfClose").addEventListener("click",()=>{$("shelf").style.display="none";});
+function fanfare(){const c=ac(),t=c.currentTime+0.05;[[72,0],[76,0.15],[79,0.3],[84,0.45],[79,0.7],[84,0.85]].forEach(([m,d],i)=>tone(m,t+d,i>=4?0.6:0.2));}
+function confetti(){
+  const cv=$("confetti"),g=cv.getContext("2d"),W=cv.width=innerWidth,H=cv.height=innerHeight;
+  const cols=["#2F5BEA","#1F9D55","#E0A100","#E4572E","#9B5DE5","#00BBF9"];
+  const ps=Array.from({length:160},()=>({x:Math.random()*W,y:-20-Math.random()*H*0.5,vx:(Math.random()-.5)*3,vy:2+Math.random()*4,r:4+Math.random()*5,a:Math.random()*6,va:(Math.random()-.5)*0.3,c:cols[Math.random()*cols.length|0]}));
+  const t0=performance.now();
+  (function fr(now){g.clearRect(0,0,W,H);ps.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.04;p.a+=p.va;g.save();g.translate(p.x,p.y);g.rotate(p.a);g.fillStyle=p.c;g.fillRect(-p.r,-p.r/2,p.r*2,p.r);g.restore();});
+    if(now-t0<4500)requestAnimationFrame(fr);else g.clearRect(0,0,W,H);})(t0);
+}
+function songTitle(){try{return (osmd.Sheet.TitleString||"Laul")+" – "+voiceOpts[curOpt].label}catch(e){return "Laul"}}
 function finish(){
   idx=targets.length;active=false;stopMic();
-  const good=status.filter(s=>s==="good").length,fixed=status.filter(s=>s==="fixed").length,n=targets.length;
-  $("sumPct").textContent=Math.round(100*good/n)+"%";
-  $("sumText").textContent=`${good} nooti ${n}-st kohe õigesti`+(fixed?`, ${fixed} parandatud`:"")+". Punased noodid on kohad, mida harjutada.";
-  $("summary").style.display="flex";$("targetNote").textContent="✓";
+  const good=status.filter(s=>s==="good").length,fixed=status.filter(s=>s==="fixed").length,n=targets.length,errors=n-good;
+  $("targetNote").textContent="✓";
+  if(errors===0){
+    const prizes=getPrizes();const e=PRIZES[prizes.length%PRIZES.length];
+    prizes.push({e,song:songTitle(),date:new Date().toISOString().slice(0,10)});store("la_prizes",JSON.stringify(prizes));showPrizeCount();
+    $("sumTitle").textContent="Veatult! Said auhinna!";$("sumTrophy").textContent=e;$("sumPct").textContent="100%";
+    $("sumText").textContent=`Kõik ${n} nooti õigesti. See on sinu ${prizes.length}. auhind!`;
+    $("sumAgain").textContent="Laula uuesti";
+    $("summary").style.display="flex";confetti();fanfare();
+  }else{
+    $("sumTitle").textContent="Laul läbi!";$("sumTrophy").textContent="";
+    $("sumPct").textContent=Math.round(100*good/n)+"%";
+    $("sumText").textContent=`${good} nooti ${n}-st kohe õigesti`+(fixed?`, ${fixed} parandatud`:"")+`. Auhinnani jäi ${errors} ${errors===1?"viga":"viga"}. Punased noodid on kohad, mida harjutada!`;
+    $("sumAgain").textContent="Proovi uuesti";
+    $("summary").style.display="flex";
+  }
 }
 
 /* ---------- restore last song ---------- */
