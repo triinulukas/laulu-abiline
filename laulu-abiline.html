@@ -88,6 +88,7 @@
   <button id="micBtn" class="primary" disabled>Laula</button>
   <button id="playBtn" disabled>Mängi ette</button>
   <button id="restartBtn" disabled>Algusest</button>
+  <button id="editCur" style="display:none">✏️ Muuda</button>
   <button id="edBtn">✏️ Kirjuta laul</button>
   <button id="prizeBtn" title="Minu auhinnad">🏆 <span id="prizeCount">0</span></button>
   <label class="tempo">Tempo <input id="tempo" type="range" min="40" max="160" value="90"><span id="tempoVal">90</span></label>
@@ -107,11 +108,12 @@
   <div id="row3">
     <button id="prevBtn" disabled>◀</button>
     <button id="giveBtn" disabled>Anna noot</button>
+    <button id="recBtn" disabled>🎧 Kuula mind</button>
     <div id="progress"></div>
     <button id="nextBtn" disabled>▶</button>
   </div>
 </div>
-<div id="summary"><div class="card"><div id="sumTitle">Laul läbi!</div><div class="trophy" id="sumTrophy"></div><div class="big" id="sumPct"></div><div id="sumText"></div><br><button class="primary" id="sumAgain">Proovi uuesti</button></div></div>
+<div id="summary"><div class="card"><div id="sumTitle">Laul läbi!</div><div class="trophy" id="sumTrophy"></div><div class="big" id="sumPct"></div><div id="sumText"></div><br><button id="sumListen">🎧 Kuula oma laulu</button> <button class="primary" id="sumAgain">Proovi uuesti</button></div></div>
 <div id="shelf"><div class="card"><b>Minu auhinnad</b><div id="shelfItems"></div><div id="shelfText" style="color:#6B7080;font-size:14px"></div><br><button id="shelfClose">Sulge</button></div></div>
 <canvas id="confetti"></canvas>
 <div id="ed">
@@ -119,7 +121,7 @@
     <input id="edTitle" placeholder="Laulu pealkiri" maxlength="60">
     <select id="edKey" title="Võtmemärgid"></select>
     <select id="edTime" title="Taktimõõt"><option>4/4</option><option>3/4</option><option>2/4</option><option>2/2</option><option>6/8</option><option>3/8</option><option>6/4</option></select>
-    <button class="primary" id="edDone">Valmis ✓</button>
+    <span id="edSaved" style="font-size:13px;color:#1F9D55"></span><button id="edLater">Jätkan hiljem</button><button class="primary" id="edDone">Valmis ✓</button>
   </div>
   <div id="edScoreWrap"><div id="edHint">Vali üleval võtmemärgid ja taktimõõt nagu sinu noodis.<br>Siis vali all noodi pikkus ja puuduta noodijoonestikul õiget kohta.</div><div id="edScore"></div></div>
   <div id="edInfo"><span id="edBar"></span><b id="edLast"></b></div>
@@ -228,7 +230,7 @@ const db=(function(){
 let curSong=null;
 async function openSong(id){
   const sg=await db.get(id);if(!sg)return;
-  curSong=sg;sg.opened=Date.now();await db.put(sg);store("la_cur",id);
+  recHalt();curSong=sg;$("recBtn").disabled=!sg.rec;$("editCur").style.display=sg.comp?"":"none";sg.opened=Date.now();await db.put(sg);store("la_cur",id);
   await openScore(sg.xml,sg.opt||0);
 }
 async function renderLib(){
@@ -236,7 +238,7 @@ async function renderLib(){
   const L=$("libList");L.innerHTML="";$("libEmpty").style.display=songs.length?"none":"block";
   songs.forEach(sg=>{
     const d=document.createElement("div");d.className="song"+(curSong&&curSong.id===sg.id?" cur":"");
-    const info=[];if(sg.best!=null)info.push("parim "+sg.best+"%");info.push(sg.opened?"viimati "+new Date(sg.opened).toLocaleDateString("et-EE"):"lisatud "+new Date(sg.added).toLocaleDateString("et-EE"));
+    const info=[];if(sg.best!=null)info.push("parim "+sg.best+"%");if(sg.comp)info.unshift("enda kirjutatud");info.push(sg.opened?"viimati "+new Date(sg.opened).toLocaleDateString("et-EE"):"lisatud "+new Date(sg.added).toLocaleDateString("et-EE"));
     d.innerHTML='<div class="pz"></div><div class="t"><b></b><small></small></div><button class="del">Kustuta</button>';
     d.querySelector(".pz").textContent=sg.prize||"🎵";d.querySelector("b").textContent=sg.title;d.querySelector("small").textContent=info.join(" · ");
     if(sg.comp){const eb=document.createElement("button");eb.className="del";eb.textContent="Muuda";d.insertBefore(eb,d.querySelector(".del"));
@@ -336,7 +338,7 @@ $("prevBtn").addEventListener("click",()=>{stopPlay();goTo(idx-1);});
 $("nextBtn").addEventListener("click",()=>{stopPlay();goTo(idx+1);});
 $("giveBtn").addEventListener("click",()=>{if(idx<targets.length)tone(targets[idx].midi,0,1.2);});
 $("tempo").addEventListener("input",e=>{$("tempoVal").textContent=e.target.value;});
-$("sumAgain").addEventListener("click",()=>{$("summary").style.display="none";status=targets.map(()=>null);render();goTo(0);});
+$("sumAgain").addEventListener("click",()=>{recHalt();$("summary").style.display="none";status=targets.map(()=>null);render();goTo(0);});
 
 let playTimers=[];
 function stopPlay(){playTimers.forEach(clearTimeout);playTimers=[];$("playBtn").textContent="Mängi ette";playing=false;}
@@ -366,11 +368,11 @@ $("micBtn").addEventListener("click",async()=>{
     const c=ac();
     stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
     const src=c.createMediaStreamSource(stream);analyser=c.createAnalyser();analyser.fftSize=2048;src.connect(analyser);
-    buf=new Float32Array(2048);running=true;$("micBtn").textContent="Lõpeta";$("micBtn").classList.add("on");showMsg("");
+    buf=new Float32Array(2048);running=true;recStart(stream);$("micBtn").textContent="Lõpeta";$("micBtn").classList.add("on");showMsg("");
     lastT=performance.now();requestAnimationFrame(loop);
   }catch(e){showMsg("Mikrofon ei käivitunud. Luba mikrofoni kasutamine (iPhone: Seaded → Safari → Mikrofon). Leht peab olema avatud https-aadressilt.");}
 });
-function stopMic(){running=false;if(stream)stream.getTracks().forEach(t=>t.stop());$("micBtn").textContent="Laula";$("micBtn").classList.remove("on");setSung(null);}
+function stopMic(){running=false;recStop();if(stream)stream.getTracks().forEach(t=>t.stop());$("micBtn").textContent="Laula";$("micBtn").classList.remove("on");setSung(null);}
 
 function setSung(m){
   if(m===null){$("sungNote").textContent="–";$("sungNote").style.color="";$("needle").style.left="50%";return;}
@@ -501,6 +503,35 @@ function finish(){
 }
 
 
+
+/* ---------- recording of own singing ---------- */
+let recorder=null,recChunks=[],recAudio=null,recSongId=null;
+function recStart(st){
+  recHalt();
+  if(!window.MediaRecorder||!curSong)return;
+  try{recChunks=[];recSongId=curSong.id;recorder=new MediaRecorder(st);
+    recorder.ondataavailable=e=>{if(e.data&&e.data.size)recChunks.push(e.data);};
+    const r=recorder,id=recSongId;
+    r.onstop=async()=>{if(!recChunks.length)return;const blob=new Blob(recChunks,{type:r.mimeType||"audio/webm"});recChunks=[];
+      if(blob.size<2000)return;
+      const sg=curSong&&curSong.id===id?curSong:await db.get(id);if(!sg)return;sg.rec=blob;await db.put(sg);
+      if(curSong&&curSong.id===id)$("recBtn").disabled=false;};
+    recorder.start();
+  }catch(e){recorder=null;}
+}
+function recStop(){try{if(recorder&&recorder.state!=="inactive")recorder.stop();}catch(e){}recorder=null;}
+function recHalt(){if(recAudio){recAudio.pause();recAudio=null;}$("recBtn").textContent="🎧 Kuula mind";$("sumListen").textContent="🎧 Kuula oma laulu";}
+function recToggle(){
+  if(recAudio){recHalt();return;}
+  if(!curSong||!curSong.rec)return;
+  if(running)stopMic();stopPlay();
+  recAudio=new Audio(URL.createObjectURL(curSong.rec));
+  recAudio.onended=recHalt;recAudio.play().catch(()=>{recHalt();showMsg("Salvestust ei õnnestunud mängida.");});
+  $("recBtn").textContent="■ Stopp";$("sumListen").textContent="■ Stopp";
+}
+$("recBtn").addEventListener("click",recToggle);
+$("sumListen").addEventListener("click",recToggle);
+
 /* ---------- composer: write your own song ---------- */
 const ED={c:null,rec:null,dur:4,dot:false,acc:null,osmd:null,seq:0};
 const LET=["C","D","E","F","G","A","B"],SEMI=[0,2,4,5,7,9,11];
@@ -512,7 +543,7 @@ function keyAlter(L,f){if(f>0)return SHARP_ORDER.slice(0,f).includes(L)?1:0;if(f
 function etName(step,alter){const L=step%7,o=Math.floor(step/7);return (alter>0?ET_SH:alter<0?ET_FL:ET_NAT)[L]+(SUP[o]!==undefined?SUP[o]:"");}
 function stepMidi(step,alter){return 12*(Math.floor(step/7)+1)+SEMI[step%7]+alter;}
 function splitDur(d){const out=[];[24,16,12,8,6,4,3,2,1].forEach(v=>{while(d>=v&&!(v===24&&d!==24)){out.push(v);d-=v;}});return out;}
-function edLayout(c){
+function edLayout(c,noPad){
   const ML=c.beats*16/c.beatType,ms=[[]],alters=[];let fill=0,accMap={};
   c.notes.forEach(n=>{
     if(fill>=ML){ms.push([]);fill=0;accMap={};}
@@ -529,12 +560,12 @@ function edLayout(c){
     if(n.step!=null)pieces.forEach((pc,i)=>{pc.tieStart=i<pieces.length-1;});else pieces.forEach(pc=>{pc.tieStop=false;});
   });
   const realFill=fill;
-  if(c.notes.length&&fill<ML)splitDur(ML-fill).forEach(d=>ms[ms.length-1].push({step:null,alter:0,dur:d}));
+  if(!noPad&&c.notes.length&&fill<ML)splitDur(ML-fill).forEach(d=>ms[ms.length-1].push({step:null,alter:0,dur:d}));
   return{ms,alters,fill:realFill>=ML?0:realFill,ML,bar:realFill>=ML?ms.length+1:ms.length};
 }
 function escX(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
-function compXML(c){
-  const L=edLayout(c);
+function compXML(c,noPad){
+  const L=edLayout(c,noPad);
   let x='<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><work><work-title>'+escX(c.title||"Minu laul")+'</work-title></work><part-list><score-part id="P1"><part-name>Laul</part-name></score-part></part-list><part id="P1">';
   L.ms.forEach((m,i)=>{
     x+='<measure number="'+(i+1)+'">';
@@ -610,7 +641,7 @@ async function edRender(){
   if(!window.opensheetmusicdisplay)return;
   try{
     if(!ED.osmd)ED.osmd=new opensheetmusicdisplay.OpenSheetMusicDisplay("edScore",{autoResize:false,backend:"svg",drawTitle:false,drawPartNames:false,autoBeam:true});
-    await ED.osmd.load(compXML(ED.c));if(my!==ED.seq)return;
+    await ED.osmd.load(compXML(ED.c,true));if(my!==ED.seq)return;
     ED.osmd.zoom=$("edScoreWrap").clientWidth<600?0.6:0.8;ED.osmd.render();
     const w=$("edScoreWrap");w.scrollTop=w.scrollHeight;
   }catch(e){}
@@ -621,6 +652,7 @@ async function edSave(){
   if(!ED.rec)ED.rec={id:"s"+Date.now()+Math.random().toString(36).slice(2,6),file:"",added:Date.now(),opened:Date.now(),opt:0,best:null,prize:null};
   ED.rec.title=c.title;ED.rec.comp=JSON.parse(JSON.stringify(c));ED.rec.xml=compXML(c);
   await db.put(ED.rec);
+  $("edSaved").textContent="Salvestatud ✓";
 }
 function edChanged(){edInfo();edRender();edSave();}
 function edPlay(){
@@ -633,7 +665,7 @@ function openEditor(sg){
   ED.c=ED.rec?JSON.parse(JSON.stringify(sg.comp)):{title:"",fifths:0,beats:4,beatType:4,notes:[]};
   ED.dur=4;ED.dot=false;ED.acc=null;ED.osmd=null;$("edScore").innerHTML="";
   $("edTitle").value=ED.c.title||"";$("edKey").value=ED.c.fifths;$("edTime").value=ED.c.beats+"/"+ED.c.beatType;
-  $("ed").style.display="flex";drawPad();edTools();edInfo();edRender();
+  $("edSaved").textContent=ED.rec?"Salvestatud ✓":"";$("ed").style.display="flex";drawPad();edTools();edInfo();edRender();
 }
 $("edKey").addEventListener("change",e=>{ED.c.fifths=+e.target.value;drawPad();edChanged();});
 $("edTime").addEventListener("change",e=>{const [a,b]=e.target.value.split("/");ED.c.beats=+a;ED.c.beatType=+b;edChanged();});
@@ -642,6 +674,9 @@ $("edDone").addEventListener("click",async()=>{
   await edSave();$("ed").style.display="none";
   if(ED.rec&&ED.c.notes.length){await openSong(ED.rec.id);}
 });
+$("edLater").addEventListener("click",async()=>{await edSave();$("ed").style.display="none";
+  if(ED.rec){if(curSong&&curSong.id===ED.rec.id)await openSong(ED.rec.id);await renderLib();$("lib").style.display="flex";}});
+$("editCur").addEventListener("click",()=>{if(curSong&&curSong.comp)openEditor(curSong);});
 ["edBtn","edBtn2","edBtn3"].forEach(id=>$(id).addEventListener("click",()=>{$("lib").style.display="none";openEditor(null);}));
 
 /* ---------- restore last song ---------- */
