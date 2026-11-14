@@ -91,6 +91,7 @@
   <button id="editCur" style="display:none">✏️ Muuda</button>
   <button id="edBtn">✏️ Kirjuta laul</button>
   <button id="prizeBtn" title="Minu auhinnad">🏆 <span id="prizeCount">0</span></button>
+  <button id="infoBtn" title="Info">ℹ️</button>
   <label class="tempo">Tempo <input id="tempo" type="range" min="40" max="160" value="90"><span id="tempoVal">90</span></label>
 </header>
 <div id="msg"></div>
@@ -116,6 +117,11 @@
 <div id="summary"><div class="card"><div id="sumTitle">Laul läbi!</div><div class="trophy" id="sumTrophy"></div><div class="big" id="sumPct"></div><div id="sumText"></div><br><button id="sumListen">🎧 Kuula oma laulu</button> <button class="primary" id="sumAgain">Proovi uuesti</button></div></div>
 <div id="shelf"><div class="card"><b>Minu auhinnad</b><div id="shelfItems"></div><div id="shelfText" style="color:#6B7080;font-size:14px"></div><br><button id="shelfClose">Sulge</button></div></div>
 <canvas id="confetti"></canvas>
+<div id="info" style="display:none;position:fixed;inset:0;z-index:25;background:rgba(30,34,48,.45);align-items:center;justify-content:center;padding:20px"><div style="background:#fff;border-radius:20px;padding:22px;max-width:440px;line-height:1.5">
+<b style="font-size:18px">Kuidas Lauluabilisega harjutada</b>
+<p><b>Miks siin laulusõnu pole?</b><br>Enda kirjutatud lauludes on ainult noodid. See on meelega nii: sõnad õpid oma noodilehelt pähe ja siin laulad juba peast. Nii jäävad sõnad paremini meelde ja saad keskenduda sellele, et iga noot oleks puhas.</p>
+<p><b>Harjutamise järjekord</b><br>1. Kirjuta laul oma noodi järgi sisse (✏️ Kirjuta laul).<br>2. Kuula meloodia ära (Mängi ette).<br>3. Õpi sõnad paberilt pähe.<br>4. Laula peast (Laula) ja kuula ennast üle (🎧 Kuula mind).<br>5. Veatu laul toob auhinna 🏆.</p>
+<div style="text-align:right"><button id="infoClose">Selge</button></div></div></div>
 <div id="ed">
   <div id="edTop">
     <input id="edTitle" placeholder="Laulu pealkiri" maxlength="60">
@@ -123,7 +129,7 @@
     <select id="edTime" title="Taktimõõt"><option>4/4</option><option>3/4</option><option>2/4</option><option>2/2</option><option>6/8</option><option>3/8</option><option>6/4</option></select>
     <span id="edSaved" style="font-size:13px;color:#1F9D55"></span><button id="edLater">Jätkan hiljem</button><button class="primary" id="edDone">Valmis ✓</button>
   </div>
-  <div id="edScoreWrap"><div id="edHint">Vali üleval võtmemärgid ja taktimõõt nagu sinu noodis.<br>Siis vali all noodi pikkus ja puuduta noodijoonestikul õiget kohta.</div><div id="edScore"></div></div>
+  <div id="edScoreWrap"><div id="edHint">Vali üleval võtmemärgid ja taktimõõt nagu sinu noodis.<br>Siis vali all noodi pikkus ja puuduta noodijoonestikul õiget kohta.<br><br><small>Sõnu siia ei kirjutata. Õpi need oma noodilehelt pähe ja laula siin peast.</small></div><div id="edScore"></div></div>
   <div id="edInfo"><span id="edBar"></span><b id="edLast"></b></div>
   <div id="edPadWrap"><svg id="edPad" xmlns="http://www.w3.org/2000/svg"></svg></div>
   <div id="edTools"></div>
@@ -530,6 +536,8 @@ function recToggle(){
   $("recBtn").textContent="■ Stopp";$("sumListen").textContent="■ Stopp";
 }
 $("recBtn").addEventListener("click",recToggle);
+$("infoBtn").addEventListener("click",()=>{$("info").style.display="flex";});
+$("infoClose").addEventListener("click",()=>{$("info").style.display="none";});
 $("sumListen").addEventListener("click",recToggle);
 
 /* ---------- composer: write your own song ---------- */
