@@ -60,7 +60,23 @@
   .song .del{border:none;background:none;color:var(--muted);font-size:13px;padding:6px 8px}
   .song .del.sure{color:#fff;background:var(--off);border-radius:999px}
   #libEmpty{color:var(--muted);padding:14px 4px}
-  #libFoot{display:flex;justify-content:space-between;gap:8px;margin-top:10px}
+  #libFoot{display:flex;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap}
+  #ed{display:none;position:fixed;inset:0;z-index:40;background:var(--bg);flex-direction:column}
+  #edTop{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;background:#fff;border-bottom:1px solid var(--line)}
+  #edTitle{flex:1;min-width:120px;font:inherit;font-size:16px;font-weight:600;padding:8px 12px;border:1px solid var(--line);border-radius:12px}
+  #edTop select{max-width:none}
+  #edScoreWrap{flex:1;min-height:70px;overflow:auto;background:#fff;margin:8px 10px 0;border:1px solid var(--line);border-radius:14px;padding:4px}
+  #edHint{color:var(--muted);text-align:center;padding:18px 10px;font-size:15px}
+  #edInfo{display:flex;justify-content:space-between;gap:10px;padding:6px 14px 2px;font-size:14px;color:var(--muted)}
+  #edInfo b{color:var(--ink)}
+  #edPadWrap{margin:4px 10px;background:#fff;border:2px solid var(--accent);border-radius:14px;touch-action:none;cursor:pointer;-webkit-user-select:none;user-select:none}
+  #edPad{display:block;width:100%;height:226px;touch-action:none}
+  #edTools{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;padding:4px 8px calc(8px + env(safe-area-inset-bottom))}
+  #edTools button{padding:4px 8px;border-radius:12px;min-width:48px;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:var(--muted);line-height:1.1}
+  #edTools button .g{font-size:22px;color:var(--ink);line-height:1.2}
+  #edTools button svg{display:block}
+  #edTools button.sel{background:#E3EAFF;border-color:var(--accent);color:var(--accent)}
+  #edTools .gap{width:6px}
 </style>
 </head>
 <body>
@@ -72,12 +88,13 @@
   <button id="micBtn" class="primary" disabled>Laula</button>
   <button id="playBtn" disabled>Mängi ette</button>
   <button id="restartBtn" disabled>Algusest</button>
+  <button id="edBtn">✏️ Kirjuta laul</button>
   <button id="prizeBtn" title="Minu auhinnad">🏆 <span id="prizeCount">0</span></button>
   <label class="tempo">Tempo <input id="tempo" type="range" min="40" max="160" value="90"><span id="tempoVal">90</span></label>
 </header>
 <div id="msg"></div>
 <div id="scoreWrap">
-  <div id="empty"><b>Lisa laulu noodifail</b><div>Vajuta „+ Lisa laul“ või lohista .mxl fail siia aknasse.</div></div>
+  <div id="empty"><b>Lisa laulu noodifail</b><div>Kirjuta laul oma noodi järgi ise sisse või lisa valmis .mxl fail.</div><br><button class="primary" id="edBtn2">✏️ Kirjuta laul</button></div>
   <div id="score"></div>
 </div>
 <div id="dock">
@@ -97,8 +114,20 @@
 <div id="summary"><div class="card"><div id="sumTitle">Laul läbi!</div><div class="trophy" id="sumTrophy"></div><div class="big" id="sumPct"></div><div id="sumText"></div><br><button class="primary" id="sumAgain">Proovi uuesti</button></div></div>
 <div id="shelf"><div class="card"><b>Minu auhinnad</b><div id="shelfItems"></div><div id="shelfText" style="color:#6B7080;font-size:14px"></div><br><button id="shelfClose">Sulge</button></div></div>
 <canvas id="confetti"></canvas>
+<div id="ed">
+  <div id="edTop">
+    <input id="edTitle" placeholder="Laulu pealkiri" maxlength="60">
+    <select id="edKey" title="Võtmemärgid"></select>
+    <select id="edTime" title="Taktimõõt"><option>4/4</option><option>3/4</option><option>2/4</option><option>2/2</option><option>6/8</option><option>3/8</option><option>6/4</option></select>
+    <button class="primary" id="edDone">Valmis ✓</button>
+  </div>
+  <div id="edScoreWrap"><div id="edHint">Vali üleval võtmemärgid ja taktimõõt nagu sinu noodis.<br>Siis vali all noodi pikkus ja puuduta noodijoonestikul õiget kohta.</div><div id="edScore"></div></div>
+  <div id="edInfo"><span id="edBar"></span><b id="edLast"></b></div>
+  <div id="edPadWrap"><svg id="edPad" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  <div id="edTools"></div>
+</div>
 <div id="lib"><div class="card"><h2>Minu laulud</h2><div id="libList"></div><div id="libEmpty">Arhiiv on tühi. Lisa esimene laul (.mxl fail).</div>
-<div id="libFoot"><label class="filebtn primary" style="background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600">+ Lisa laul<input id="file2" type="file" accept=".mxl,.musicxml,.xml" multiple></label><button id="libClose">Sulge</button></div></div></div>
+<div id="libFoot"><label class="filebtn primary" style="background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600">+ Lisa laul<input id="file2" type="file" accept=".mxl,.musicxml,.xml" multiple></label><button id="edBtn3">✏️ Kirjuta laul</button><button id="libClose">Sulge</button></div></div></div>
 <script>
 (function(){
 "use strict";
@@ -210,6 +239,8 @@ async function renderLib(){
     const info=[];if(sg.best!=null)info.push("parim "+sg.best+"%");info.push(sg.opened?"viimati "+new Date(sg.opened).toLocaleDateString("et-EE"):"lisatud "+new Date(sg.added).toLocaleDateString("et-EE"));
     d.innerHTML='<div class="pz"></div><div class="t"><b></b><small></small></div><button class="del">Kustuta</button>';
     d.querySelector(".pz").textContent=sg.prize||"🎵";d.querySelector("b").textContent=sg.title;d.querySelector("small").textContent=info.join(" · ");
+    if(sg.comp){const eb=document.createElement("button");eb.className="del";eb.textContent="Muuda";d.insertBefore(eb,d.querySelector(".del"));
+      eb.addEventListener("click",ev=>{ev.stopPropagation();$("lib").style.display="none";openEditor(sg);});}
     const del=d.querySelector(".del");
     del.addEventListener("click",async ev=>{ev.stopPropagation();
       if(!del.classList.contains("sure")){del.classList.add("sure");del.textContent="Kindel?";setTimeout(()=>{del.classList.remove("sure");del.textContent="Kustuta";},3000);return;}
@@ -224,6 +255,7 @@ $("libClose").addEventListener("click",()=>{$("lib").style.display="none";});
 async function openScore(x,opt){
   showMsg("");xmlText=x;
   if(!osmd)osmd=osmdInit();if(!osmd)return;
+  osmd.setOptions({autoBeam:!!(curSong&&curSong.comp)});
   await osmd.load(x);
   $("empty").style.display="none";
   // voice options
@@ -237,6 +269,12 @@ async function openScore(x,opt){
       voiceOpts.push({ins:i,vid,label});
     });
   });
+  // drop voices that have no sung notes (empty parts, rests only)
+  try{const cnt={};
+    osmd.Sheet.SourceMeasures.forEach(m=>m.VerticalSourceStaffEntryContainers.forEach(c=>c.StaffEntries.forEach(se=>{if(!se)return;
+      const ii=osmd.Sheet.Instruments.indexOf(se.ParentStaff.ParentInstrument);
+      se.VoiceEntries.forEach(ve=>{if(ve.Notes.some(n=>!n.isRest())){const k=ii+":"+ve.ParentVoice.VoiceId;cnt[k]=(cnt[k]||0)+1;}});})));
+    const keep=voiceOpts.filter(v=>cnt[v.ins+":"+v.vid]>0);if(keep.length)voiceOpts=keep;}catch(e){}
   const sel=$("voiceSel");sel.innerHTML="";
   voiceOpts.forEach((v,i)=>{const o=document.createElement("option");o.value=i;o.textContent=v.label;sel.appendChild(o);});
   curOpt=Math.min(opt||0,voiceOpts.length-1);sel.value=curOpt;sel.disabled=false;
@@ -268,7 +306,7 @@ function setupVoice(){
   }
   status=targets.map(()=>null);
   ["micBtn","playBtn","restartBtn","prevBtn","nextBtn","giveBtn"].forEach(id=>$(id).disabled=!targets.length);
-  if(!targets.length)showMsg("Selles hääles ei leidnud noote. Vali teine hääl.");
+  showMsg(targets.length?"":"Selles hääles ei leidnud noote. Vali teine hääl.");
   goTo(0);
 }
 function goTo(i){
@@ -461,6 +499,150 @@ function finish(){
     $("summary").style.display="flex";
   }
 }
+
+
+/* ---------- composer: write your own song ---------- */
+const ED={c:null,rec:null,dur:4,dot:false,acc:null,osmd:null,seq:0};
+const LET=["C","D","E","F","G","A","B"],SEMI=[0,2,4,5,7,9,11];
+const SHARP_ORDER=[3,0,4,1,5,2,6],FLAT_ORDER=[6,2,5,1,4,0,3];
+const ET_NAT=["C","D","E","F","G","A","H"],ET_SH=["Cis","Dis","Eis","Fis","Gis","Ais","His"],ET_FL=["Ces","Des","Es","Fes","Ges","As","B"];
+const TYPES={24:["whole",1],16:["whole",0],12:["half",1],8:["half",0],6:["quarter",1],4:["quarter",0],3:["eighth",1],2:["eighth",0],1:["16th",0]};
+const P_MIN=25,P_MAX=43,P_H=11,P_T=14;
+function keyAlter(L,f){if(f>0)return SHARP_ORDER.slice(0,f).includes(L)?1:0;if(f<0)return FLAT_ORDER.slice(0,-f).includes(L)?-1:0;return 0;}
+function etName(step,alter){const L=step%7,o=Math.floor(step/7);return (alter>0?ET_SH:alter<0?ET_FL:ET_NAT)[L]+(SUP[o]!==undefined?SUP[o]:"");}
+function stepMidi(step,alter){return 12*(Math.floor(step/7)+1)+SEMI[step%7]+alter;}
+function splitDur(d){const out=[];[24,16,12,8,6,4,3,2,1].forEach(v=>{while(d>=v&&!(v===24&&d!==24)){out.push(v);d-=v;}});return out;}
+function edLayout(c){
+  const ML=c.beats*16/c.beatType,ms=[[]],alters=[];let fill=0,accMap={};
+  c.notes.forEach(n=>{
+    if(fill>=ML){ms.push([]);fill=0;accMap={};}
+    let alter=0;
+    if(n.step!=null){if(n.acc!=null){alter=n.acc;accMap[n.step]=n.acc;}else if(n.step in accMap)alter=accMap[n.step];else alter=keyAlter(n.step%7,c.fifths);}
+    alters.push(alter);
+    let left=n.dur;const pieces=[];
+    while(left>0){
+      if(fill>=ML){ms.push([]);fill=0;accMap={};}
+      const take=Math.min(left,ML-fill);
+      splitDur(take).forEach(d=>{const pc={step:n.step,alter,dur:d,tieStop:pieces.length>0,tieStart:false};pieces.push(pc);ms[ms.length-1].push(pc);});
+      fill+=take;left-=take;
+    }
+    if(n.step!=null)pieces.forEach((pc,i)=>{pc.tieStart=i<pieces.length-1;});else pieces.forEach(pc=>{pc.tieStop=false;});
+  });
+  const realFill=fill;
+  if(c.notes.length&&fill<ML)splitDur(ML-fill).forEach(d=>ms[ms.length-1].push({step:null,alter:0,dur:d}));
+  return{ms,alters,fill:realFill>=ML?0:realFill,ML,bar:realFill>=ML?ms.length+1:ms.length};
+}
+function escX(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function compXML(c){
+  const L=edLayout(c);
+  let x='<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><work><work-title>'+escX(c.title||"Minu laul")+'</work-title></work><part-list><score-part id="P1"><part-name>Laul</part-name></score-part></part-list><part id="P1">';
+  L.ms.forEach((m,i)=>{
+    x+='<measure number="'+(i+1)+'">';
+    if(i===0)x+='<attributes><divisions>4</divisions><key><fifths>'+c.fifths+'</fifths></key><time><beats>'+c.beats+'</beats><beat-type>'+c.beatType+'</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>';
+    m.forEach(pc=>{const ty=TYPES[pc.dur];x+='<note>';
+      if(pc.step==null)x+='<rest/>';else x+='<pitch><step>'+LET[pc.step%7]+'</step>'+(pc.alter?'<alter>'+pc.alter+'</alter>':'')+'<octave>'+Math.floor(pc.step/7)+'</octave></pitch>';
+      x+='<duration>'+pc.dur+'</duration>';
+      if(pc.tieStop)x+='<tie type="stop"/>';if(pc.tieStart)x+='<tie type="start"/>';
+      x+='<voice>1</voice><type>'+ty[0]+'</type>'+(ty[1]?'<dot/>':'');
+      if(pc.tieStop||pc.tieStart)x+='<notations>'+(pc.tieStop?'<tied type="stop"/>':'')+(pc.tieStart?'<tied type="start"/>':'')+'</notations>';
+      x+='</note>';});
+    x+='</measure>';});
+  return x+'</part></score-partwise>';
+}
+function nIcon(d){const hollow=d>=8,stem=d<16,flags=d===2?1:d===1?2:0;
+  let g='<svg width="22" height="30" viewBox="0 0 22 30"><ellipse cx="8" cy="24" rx="6" ry="4.2" transform="rotate(-20 8 24)" fill="'+(hollow?"none":"#1E2230")+'" stroke="#1E2230" stroke-width="1.6"/>';
+  if(stem)g+='<line x1="13.6" y1="22.5" x2="13.6" y2="3" stroke="#1E2230" stroke-width="1.6"/>';
+  for(let i=0;i<flags;i++)g+='<path d="M13.6 '+(3+i*6)+' q7 3 4 11" fill="none" stroke="#1E2230" stroke-width="1.8"/>';
+  return g+'</svg>';}
+(function buildEdUI(){
+  const k=$("edKey");
+  for(let f=-6;f<=6;f++){const o=document.createElement("option");o.value=f;o.textContent=f===0?"Märke pole":f>0?"♯".repeat(f)+"  "+f+" diees"+(f>1?"i":""):"♭".repeat(-f)+"  "+(-f)+" bemoll"+(f<-1?"i":"");k.appendChild(o);}
+  const T=$("edTools");
+  [[16,"täis"],[8,"pool"],[4,"veerand"],[2,"kaheksandik"],[1,"16-ndik"]].forEach(([d,l])=>{const b=document.createElement("button");b.dataset.d=d;b.innerHTML=nIcon(d)+l;b.addEventListener("click",()=>{ED.dur=d;if(d===1)ED.dot=false;edTools();});T.appendChild(b);});
+  const mk=(id,g,l,fn)=>{const b=document.createElement("button");b.id=id;b.innerHTML='<span class="g">'+g+'</span>'+l;b.addEventListener("click",fn);T.appendChild(b);return b;};
+  mk("edDot","•","punkt",()=>{if(ED.dur>1){ED.dot=!ED.dot;edTools();}});
+  T.appendChild(Object.assign(document.createElement("span"),{className:"gap"}));
+  mk("edSharp","♯","diees",()=>{ED.acc=ED.acc===1?null:1;edTools();});
+  mk("edFlat","♭","bemoll",()=>{ED.acc=ED.acc===-1?null:-1;edTools();});
+  mk("edNat","♮","bekarr",()=>{ED.acc=ED.acc===0?null:0;edTools();});
+  T.appendChild(Object.assign(document.createElement("span"),{className:"gap"}));
+  mk("edRest","𝄽","paus",()=>edAdd(null));
+  mk("edUndo","⌫","tagasi",()=>{if(ED.c.notes.length){ED.c.notes.pop();edChanged();}});
+  mk("edPlay","▶","kuula",edPlay);
+})();
+function edTools(){
+  document.querySelectorAll("#edTools button[data-d]").forEach(b=>b.classList.toggle("sel",+b.dataset.d===ED.dur));
+  $("edDot").classList.toggle("sel",ED.dot);$("edSharp").classList.toggle("sel",ED.acc===1);$("edFlat").classList.toggle("sel",ED.acc===-1);$("edNat").classList.toggle("sel",ED.acc===0);
+}
+function padY(step){return P_T+(P_MAX-step)*P_H;}
+function drawPad(){
+  const f=ED.c.fifths;let g='';
+  [30,32,34,36,38].forEach(st=>{g+='<line x1="0" x2="100%" y1="'+padY(st)+'" y2="'+padY(st)+'" stroke="#1E2230" stroke-width="1.4"/>';});
+  [26,28,40,42].forEach(st=>{g+='<line x1="30%" x2="80%" y1="'+padY(st)+'" y2="'+padY(st)+'" stroke="#C9C2B6" stroke-width="1.2" stroke-dasharray="5 5"/>';});
+  g+='<text x="6" y="'+(padY(30)+8)+'" font-size="'+(P_H*8.2)+'" font-family="serif" fill="#1E2230">\u{1D11E}</text>';
+  const pos=f>0?[38,35,39,36,33,37,34]:[34,37,33,36,32,35,31];
+  for(let i=0;i<Math.abs(f);i++)g+='<text x="'+(62+i*13)+'" y="'+(padY(pos[i])+(f>0?7:5))+'" font-size="24" font-family="serif" fill="#1E2230">'+(f>0?"♯":"♭")+'</text>';
+  g+='<g id="edGhost" style="display:none"><ellipse cx="60%" cy="0" rx="9.5" ry="6.6" fill="#2F5BEA"/><text id="edGhostT" x="60%" dx="20" y="0" dy="7" font-size="22" font-weight="800" fill="#2F5BEA" font-family="-apple-system,sans-serif"></text></g>';
+  $("edPad").innerHTML=g;
+}
+function padStepAt(e){const r=$("edPad").getBoundingClientRect();return Math.max(P_MIN,Math.min(P_MAX,Math.round(P_MAX-(e.clientY-r.top-P_T)/P_H)));}
+function padAlter(step){if(ED.acc!=null)return ED.acc;const L=edLayout(Object.assign({},ED.c,{notes:ED.c.notes.concat([{step,dur:1,acc:null}])}));return L.alters[L.alters.length-1];}
+let padStep=null;
+function padShow(e){padStep=padStepAt(e);const g=$("edGhost");if(!g)return;g.style.display="";g.setAttribute("transform","translate(0,"+padY(padStep)+")");$("edGhostT").textContent=etName(padStep,padAlter(padStep));}
+$("edPad").addEventListener("pointerdown",e=>{e.preventDefault();try{$("edPad").setPointerCapture(e.pointerId)}catch(_){}padShow(e);});
+$("edPad").addEventListener("pointermove",e=>{if(padStep!=null)padShow(e);});
+$("edPad").addEventListener("pointerup",e=>{if(padStep==null)return;const st=padStep;padStep=null;edAdd(st);setTimeout(()=>{if(padStep==null&&$("edGhost"))$("edGhost").style.display="none";},450);});
+$("edPad").addEventListener("pointercancel",()=>{padStep=null;if($("edGhost"))$("edGhost").style.display="none";});
+function edAdd(step){
+  let d=ED.dur;if(ED.dot&&d>1)d=d*1.5;
+  const n={step,dur:d,acc:step==null?null:ED.acc};
+  if(step!=null){const a=padAlter(step);tone(stepMidi(step,a),0,0.5);$("edLast").textContent=etName(step,a);}else $("edLast").textContent="paus";
+  ED.c.notes.push(n);ED.dot=false;ED.acc=null;edTools();edChanged();
+}
+function edInfo(){
+  const L=edLayout(ED.c),beat=16/ED.c.beatType,left=(L.ML-L.fill)/beat;
+  $("edBar").textContent=ED.c.notes.length?"Takt "+L.bar+" · mahub veel "+(Math.round(left*100)/100).toString().replace(".",",")+" lööki":"";
+  if(!ED.c.notes.length)$("edLast").textContent="";
+}
+async function edRender(){
+  const my=++ED.seq;$("edHint").style.display=ED.c.notes.length?"none":"block";
+  if(!ED.c.notes.length){$("edScore").innerHTML="";ED.osmd=null;return;}
+  if(!window.opensheetmusicdisplay)return;
+  try{
+    if(!ED.osmd)ED.osmd=new opensheetmusicdisplay.OpenSheetMusicDisplay("edScore",{autoResize:false,backend:"svg",drawTitle:false,drawPartNames:false,autoBeam:true});
+    await ED.osmd.load(compXML(ED.c));if(my!==ED.seq)return;
+    ED.osmd.zoom=$("edScoreWrap").clientWidth<600?0.6:0.8;ED.osmd.render();
+    const w=$("edScoreWrap");w.scrollTop=w.scrollHeight;
+  }catch(e){}
+}
+async function edSave(){
+  const c=ED.c;if(!c.notes.length&&!ED.rec)return;
+  c.title=($("edTitle").value||"").trim()||"Minu laul";
+  if(!ED.rec)ED.rec={id:"s"+Date.now()+Math.random().toString(36).slice(2,6),file:"",added:Date.now(),opened:Date.now(),opt:0,best:null,prize:null};
+  ED.rec.title=c.title;ED.rec.comp=JSON.parse(JSON.stringify(c));ED.rec.xml=compXML(c);
+  await db.put(ED.rec);
+}
+function edChanged(){edInfo();edRender();edSave();}
+function edPlay(){
+  const L=edLayout(ED.c),c=ac(),q=60/(+$("tempo").value),t0=c.currentTime+0.1;let t=0;
+  ED.c.notes.forEach((n,i)=>{const d=n.dur/4*q;if(n.step!=null)tone(stepMidi(n.step,L.alters[i]),t0+t,d*0.95);t+=d;});
+}
+function openEditor(sg){
+  if(running)stopMic();stopPlay();
+  ED.rec=sg&&sg.comp?sg:null;
+  ED.c=ED.rec?JSON.parse(JSON.stringify(sg.comp)):{title:"",fifths:0,beats:4,beatType:4,notes:[]};
+  ED.dur=4;ED.dot=false;ED.acc=null;ED.osmd=null;$("edScore").innerHTML="";
+  $("edTitle").value=ED.c.title||"";$("edKey").value=ED.c.fifths;$("edTime").value=ED.c.beats+"/"+ED.c.beatType;
+  $("ed").style.display="flex";drawPad();edTools();edInfo();edRender();
+}
+$("edKey").addEventListener("change",e=>{ED.c.fifths=+e.target.value;drawPad();edChanged();});
+$("edTime").addEventListener("change",e=>{const [a,b]=e.target.value.split("/");ED.c.beats=+a;ED.c.beatType=+b;edChanged();});
+$("edTitle").addEventListener("change",()=>{edSave();});
+$("edDone").addEventListener("click",async()=>{
+  await edSave();$("ed").style.display="none";
+  if(ED.rec&&ED.c.notes.length){await openSong(ED.rec.id);}
+});
+["edBtn","edBtn2","edBtn3"].forEach(id=>$(id).addEventListener("click",()=>{$("lib").style.display="none";openEditor(null);}));
 
 /* ---------- restore last song ---------- */
 (async()=>{
