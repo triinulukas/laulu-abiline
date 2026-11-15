@@ -138,7 +138,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 <div id="summary"><div class="card"><div id="sumTitle">Laul läbi!</div><div class="trophy" id="sumTrophy"></div><div class="big" id="sumPct"></div><div id="sumText"></div><br><button id="sumListen">🎧 Kuula oma laulu</button> <button class="primary" id="sumAgain">Proovi uuesti</button></div></div>
 <div id="shelf"><div class="card"><b>Minu auhinnad</b><div id="shelfItems"></div><div id="shelfText" style="color:#6B7080;font-size:14px"></div><br><button id="shelfReset">Nulli auhinnad</button> <button id="shelfClose">Sulge</button></div></div>
 <canvas id="confetti"></canvas>
-<div id="info" style="display:none;position:fixed;inset:0;z-index:25;background:rgba(30,34,48,.45);align-items:center;justify-content:center;padding:20px"><div style="background:#fff;border-radius:20px;padding:22px;max-width:440px;line-height:1.5">
+<div id="info" style="display:none;position:fixed;inset:0;z-index:25;background:rgba(30,34,48,.45);align-items:center;justify-content:center;padding:20px"><div style="background:#fff;border-radius:20px;padding:22px;max-width:440px;line-height:1.5;max-height:calc(100vh - 40px);overflow-y:auto;-webkit-overflow-scrolling:touch">
 <b style="font-size:18px">Kuidas Lauluabilisega harjutada</b>
 <p><b>Sõnad</b><br>Failist lisatud laulul on sõnad noodi all. Enda kirjutatud laulule saad sõnad ise lisada: vali noot (✏️ Muuda või puuduta noodi), kirjuta silp ja vajuta tühikut, siis hüppab äpp järgmise noodi juurde. Kui sõna jätkub, lõpeta silp kriipsuga: „ti-“, „li-“, „seb“. Kui tahad sõnad peast selgeks õppida, jäta need lihtsalt kirjutamata.</p>
 <p><b>Keerukamad märgid</b><br>Noodikirjutajas avab nupp „⋯ veel“ lisamärgid: kopeerimine (põhireal ⧉: vali taktid, mis lisatakse laulu lõppu), refrääni märkimine (R: vajuta refrääni alguses ja lõpus; siis saab kogu refrääni ühe nupuga lõppu kopeerida), triool, kaar (sama kõrgusega nootide vahel pidekaar, eri kõrgusega sidekaar), fermaat, helistiku ja taktimõõdu vahetus laulu keskel, taktijoon ja eeltakt, kordusmärgid, lõpujoon, dünaamika (pp kuni ff) ning crescendo ja diminuendo.</p>
@@ -146,7 +146,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 <p><b>Kus laulud asuvad?</b><br>Laulud, auhinnad ja salvestused on selle seadme brauseris ja jäävad alles ka siis, kui äpp on kinni. Kindluse mõttes tee aeg-ajalt varukoopia: Minu laulud → ⬇ Varukoopia. Sama failiga saab laulud teise seadmesse viia (⬆ Taasta).</p>
 <p><b>Mängimine ja kerimine</b><br>Noodile puudutamine viib laulu sellesse kohta, ka mängimise ajal. ◀ ▶ hüppavad mängimise ajal eelmise või järgmise noodi juurde, nii saad pikad pausid vahele jätta. Redaktoris saab tegevusi tagasi võtta nupuga ↶ või klahvidega Cmd+Z (Cmd+Shift+Z teeb uuesti). Laulu nime muudad laulude loendis nupuga Nimeta.</p>
 <p><b>Harjutamise järjekord</b><br>1. Kirjuta laul oma noodi järgi sisse (✏️ Kirjuta laul).<br>2. Kuula meloodia ära (Mängi ette).<br>3. Õpi sõnad paberilt pähe.<br>4. Laula peast (Laula) ja kuula ennast üle (🎧 Kuula mind).<br>5. Veatu laul toob auhinna 🏆.</p>
-<div style="text-align:right"><button id="infoClose">Selge</button></div></div></div>
+<p style="color:#6B7080;font-size:13px">Versioon: <b>v23c</b> · 16.11.2026 · salmid ühes laulus</p><div style="text-align:right;position:sticky;bottom:-22px;background:#fff;padding:10px 0 2px"><button id="infoClose" class="primary">Selge, sulge</button></div></div></div>
 <div id="ed">
   <div id="edTop">
     <input id="edTitle" placeholder="Laulu pealkiri" maxlength="60">
@@ -642,6 +642,8 @@ function recToggle(){
 }
 $("recBtn").addEventListener("click",recToggle);
 $("infoBtn").addEventListener("click",()=>{$("info").style.display="flex";});
+$("info").addEventListener("click",e=>{if(e.target===$("info"))$("info").style.display="none";});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("info").style.display==="flex")$("info").style.display="none";});
 $("infoClose").addEventListener("click",()=>{$("info").style.display="none";});
 $("sumListen").addEventListener("click",recToggle);
 
