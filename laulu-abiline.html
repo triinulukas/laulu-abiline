@@ -159,6 +159,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <button id="edSelPrev" style="padding:4px 12px">◀</button><button id="edSelNext" style="padding:4px 12px">▶</button>
     <span id="edSelTxt" style="flex:1;min-width:150px"></span>
     <div id="edArcList" style="flex:1 1 100%;display:none;gap:6px;flex-wrap:wrap;align-items:center;font-size:13px"></div>
+    <div id="edVerseBar" style="flex:1 1 100%;display:none;gap:6px;flex-wrap:wrap;align-items:center;font-size:13px"></div>
     <input id="edLy" placeholder="Sõna või silp. Kirjuta „ti-“, kui sõna jätkub. Tühik = järgmine noot" maxlength="40" autocomplete="off" style="flex:1 1 100%;font-size:16px;padding:6px 10px;border:1px solid #C9C2B6;border-radius:10px;display:none">
     <input id="edTx" placeholder="Kommentaar selle noodi juurde (nt hinga siin). Tühi = kustuta" maxlength="80" autocomplete="off" style="flex:1 1 100%;font-size:16px;padding:6px 10px;border:1px dashed #C9C2B6;border-radius:10px;display:none;background:#FFFDF5">
     <button id="edLyGo" style="padding:4px 10px;font-size:13px">✎ Sõnad noodi kaupa</button><button id="edLyTxt" style="padding:4px 10px;font-size:13px">📝 Sõnad tekstina</button><button id="edSelIns" style="padding:4px 10px;font-size:13px">Lisa noot ette</button><button id="edSelDel" style="padding:4px 10px;font-size:13px">Kustuta</button><button id="edSelOff" class="primary" style="padding:4px 10px;font-size:13px">Jätka lõpust</button>
@@ -222,7 +223,7 @@ function detect(buf,sr){
 }
 
 /* ---------- score ---------- */
-let osmd=null,xmlText=null,targets=[],status=[],idx=0,voiceOpts=[],curOpt=0;
+let osmd=null,xmlText=null,targets=[],status=[],idx=0,voiceOpts=[],curOpt=0,PASSES=1,shownPass=0;
 function osmdInit(){
   if(!window.opensheetmusicdisplay){showMsg("Noodilugeja ei laadinud. Kontrolli internetiühendust ja laadi leht uuesti.");return null;}
   const o=new opensheetmusicdisplay.OpenSheetMusicDisplay("score",{autoResize:false,backend:"svg",drawTitle:true,drawPartNames:false,followCursor:true,cursorsOptions:[{type:0,color:"#2F5BEA",alpha:0.35,follow:true}]});
@@ -388,6 +389,8 @@ function setupVoice(){
     }
     c.Iterator.moveToNext();step++;
   }
+  {const mv=/name="la-verses">(\d+)</.exec(xmlText||"");PASSES=mv?Math.max(1,Math.min(8,+mv[1])):1;shownPass=0;
+    if(PASSES>1){const base=targets.slice();targets=[];for(let p=0;p<PASSES;p++)base.forEach(t=>targets.push(Object.assign({},t,{pass:p})));}}
   status=targets.map(()=>null);bindSeek();
   ["micBtn","playBtn","restartBtn","prevBtn","nextBtn","giveBtn"].forEach(id=>$(id).disabled=!targets.length);
   showMsg(targets.length?"":"Selles hääles ei leidnud noote. Vali teine hääl.");
@@ -395,6 +398,7 @@ function setupVoice(){
 }
 function goTo(i){
   idx=Math.max(0,Math.min(i,targets.length));held=0;active=false;wrongMs=0;wrongNote=null;onset=false;sungAs=null;
+  {const tp=targets.length?(targets[Math.min(idx,targets.length-1)].pass||0):0;if(tp!==shownPass){shownPass=tp;render();recolorAll();}}
   const c=osmd.cursor;c.reset();
   const step=idx<targets.length?targets[idx].step:(targets.length?targets[targets.length-1].step:0);
   for(let s=0;s<step;s++)c.Iterator.moveToNext();
@@ -409,9 +413,10 @@ function colorNote(t,color){
 function setStatus(i,s){if(!targets[i])return;if(s!=="bad")sungAs=null;status[i]=s;colorNote(targets[i],s==="good"?COL.good:s==="fixed"?COL.fixed:COL.bad);updateProgress();}
 function updateProgress(){
   const done=status.filter(s=>s).length,good=status.filter(s=>s==="good").length;
-  $("progress").textContent=targets.length?`${Math.min(idx+1,targets.length)}/${targets.length} · õigeid ${good}`:"";
+  const sv=PASSES>1&&targets.length?`Salm ${(targets[Math.min(idx,targets.length-1)].pass||0)+1}/${PASSES} · `:"";
+  $("progress").textContent=targets.length?`${sv}${Math.min(idx+1,targets.length)}/${targets.length} · õigeid ${good}`:"";
 }
-function recolorAll(){status.forEach((s,i)=>{if(s)colorNote(targets[i],s==="good"?COL.good:s==="fixed"?COL.fixed:COL.bad);});}
+function recolorAll(){status.forEach((s,i)=>{if(s&&(targets[i].pass||0)===shownPass)colorNote(targets[i],s==="good"?COL.good:s==="fixed"?COL.fixed:COL.bad);});}
 window.addEventListener("resize",()=>{if(!osmd||!targets.length)return;clearTimeout(window._rt);window._rt=setTimeout(()=>{const k=idx;render();goTo(k);recolorAll();},300);});
 
 /* ---------- controls ---------- */
@@ -558,7 +563,8 @@ function follow(m,dt){
 function goToKeep(){const k=idx;const st=status;goTo(k);status=st;}
 function advance(){
   if(idx+1>=targets.length){finish();return;}
-  idx++;const c=osmd.cursor;const steps=targets[idx].step-targets[idx-1].step;
+  idx++;if((targets[idx].pass||0)!==shownPass){goToKeep();return;}
+  const c=osmd.cursor;const steps=targets[idx].step-targets[idx-1].step;
   for(let s=0;s<steps;s++)c.Iterator.moveToNext();c.update();
   $("targetNote").textContent=noteLabel(targets[idx].midi);updateProgress();
 }
@@ -716,18 +722,21 @@ function edLayout(c,noPad){
   if(!noPad&&last.p.length&&!full)splitDur(Math.floor((ML-fill)/3)*3).forEach(d=>last.p.push({step:null,alter:0,dur:d}));
   return{ms,alters,noteM,ML,fifths,beatType,arcs,fill:full?0:fill,bar:full?ms.length+1:ms.length};
 }
+function getLy(n,v){return v?((n.lv&&n.lv[v-1])||""):(n.ly||"");}
+function setLy(n,v,val){if(!v){if(val)n.ly=val;else delete n.ly;}else{n.lv=n.lv||[];n.lv[v-1]=val||"";while(n.lv.length&&!n.lv[n.lv.length-1])n.lv.pop();if(!n.lv.length)delete n.lv;}}
 function escX(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function compXML(c,noPad){
   const L=edLayout(c,noPad);let ms=L.ms.slice();
   while(ms.length>1&&!ms[ms.length-1].p.length&&!ms[ms.length-1].left)ms.pop();
   if(!noPad&&!ms[ms.length-1].right)ms[ms.length-1]=Object.assign({},ms[ms.length-1],{right:"final"});
-  const LY={};{let pc=false;c.notes.forEach((n,k)=>{if(isMark(n)||n.step==null||!n.ly)return;const cont=/-$/.test(n.ly),t=n.ly.replace(/-+$/,'').trim();if(!t){return;}LY[k]={t,s:pc?(cont?'middle':'end'):(cont?'begin':'single')};pc=cont;});}
-  let x='<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><work><work-title>'+escX(c.title||"Minu laul")+'</work-title></work><part-list><score-part id="P1"><part-name>Laul</part-name></score-part></part-list><part id="P1">';
+  const NV=Math.max(1,Math.min(8,c.verses||1)),LY=[];
+  for(let v=0;v<NV;v++){const M={};let pc=false;c.notes.forEach((n,k)=>{const l=getLy(n,v);if(isMark(n)||n.step==null||!l)return;const cont=/-$/.test(l),t=l.replace(/-+$/,'').trim();if(!t){return;}M[k]={t,s:pc?(cont?'middle':'end'):(cont?'begin':'single')};pc=cont;});LY.push(M);}
+  let x='<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><work><work-title>'+escX(c.title||"Minu laul")+'</work-title></work>'+(NV>1?'<identification><miscellaneous><miscellaneous-field name="la-verses">'+NV+'</miscellaneous-field></miscellaneous></identification>':'')+'<part-list><score-part id="P1"><part-name>Laul</part-name></score-part></part-list><part id="P1">';
   ms.forEach((m,i)=>{
     x+='<measure number="'+(i+1)+'">';
     if(i===0)x+='<attributes><divisions>12</divisions><key><fifths>'+c.fifths+'</fifths></key><time><beats>'+c.beats+'</beats><beat-type>'+c.beatType+'</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>';
     if(m.attr)x+='<attributes>'+(m.attr.key!=null?'<key><fifths>'+m.attr.key+'</fifths></key>':'')+(m.attr.time?'<time><beats>'+m.attr.time[0]+'</beats><beat-type>'+m.attr.time[1]+'</beat-type></time>':'')+'</attributes>';
-    if(m.left)x+='<barline location="left"><bar-style>heavy-light</bar-style><repeat direction="forward"/></barline>';
+    if(m.left&&NV<2)x+='<barline location="left"><bar-style>heavy-light</bar-style><repeat direction="forward"/></barline>';
     if(!m.p.length)x+='<note><rest measure="yes"/><duration>'+L.ML+'</duration><voice>1</voice></note>';
     m.p.forEach(pc=>{const ty=TYPES[pc.trip?pc.dur*3/2:pc.dur]||["quarter",0];(pc.pre||[]).forEach(d=>{x+=dirX(d);});
       if(pc.first&&c.notes[pc.owner]&&c.notes[pc.owner].tx)x+='<direction placement="above"><direction-type><words font-style="italic">'+escX(c.notes[pc.owner].tx)+'</words></direction-type></direction>';
@@ -743,9 +752,9 @@ function compXML(c,noPad){
       if(pc.tupStart)nt+='<tuplet type="start" bracket="yes"/>';if(pc.tupStop)nt+='<tuplet type="stop"/>';
       if(pc.ferm)nt+='<fermata type="upright"/>';
       if(nt)x+='<notations>'+nt+'</notations>';
-      if(pc.first&&LY[pc.owner])x+='<lyric number="1"><syllabic>'+LY[pc.owner].s+'</syllabic><text>'+escX(LY[pc.owner].t)+'</text></lyric>';
+      if(pc.first)LY.forEach((M,v)=>{const y=M[pc.owner];if(y)x+='<lyric number="'+(v+1)+'"><syllabic>'+y.s+'</syllabic><text>'+escX(y.t)+'</text></lyric>';});
       x+='</note>';(pc.post||[]).forEach(d=>{x+=dirX(d);});});
-    if(m.right)x+='<barline location="right"><bar-style>'+(m.right==="double"?"light-light":"light-heavy")+'</bar-style>'+(m.right==="repEnd"?'<repeat direction="backward"/>':'')+'</barline>';
+    if(m.right&&!(NV>1&&m.right==="repEnd"))x+='<barline location="right"><bar-style>'+(m.right==="double"?"light-light":"light-heavy")+'</bar-style>'+(m.right==="repEnd"?'<repeat direction="backward"/>':'')+'</barline>';
     x+='</measure>';});
   return x+'</part></score-partwise>';
 }
@@ -947,8 +956,19 @@ function edSelDelete(){if(ED.sel==null)return;ED.c.notes.splice(ED.sel,1);
   const ix=edNoteIdx();const nx=ix.find(k=>k>=ED.sel);ED.sel=nx!=null?nx:(ix.length?ix[ix.length-1]:null);edTools();edChanged();}
 function edSelInsert(){if(ED.sel==null)return;const n=ED.c.notes[ED.sel];ED.c.notes.splice(ED.sel,0,{step:n.step,dur:n.trip?12:n.dur,acc:null});edTools();edChanged();}
 let lyIdx=null,txIdx=null;
-function lyCommit(){if(lyIdx==null||!ED.c||!ED.c.notes[lyIdx])return false;const n=ED.c.notes[lyIdx],v=$("edLy").value.replace(/\s+/g,"").slice(0,40);if((n.ly||"")===v)return false;if(v)n.ly=v;else delete n.ly;return true;}
+function lyCommit(){if(lyIdx==null||!ED.c||!ED.c.notes[lyIdx])return false;const n=ED.c.notes[lyIdx],v=$("edLy").value.replace(/\s+/g,"").slice(0,40);if(getLy(n,ED.verse||0)===v)return false;setLy(n,ED.verse||0,v);return true;}
+function edVerseBar(){const B=$("edVerseBar");if(!B)return;const has=edNoteIdx().length,N=Math.max(1,ED.c.verses||1);
+  if(ED.verse==null||ED.verse>=N||ED.verse<0)ED.verse=0;
+  B.style.display=has?"flex":"none";B.innerHTML="";if(!has)return;
+  const lab=document.createElement("span");lab.textContent="Salm:";B.appendChild(lab);
+  for(let v=0;v<N;v++){const b=document.createElement("button");b.textContent=String(v+1);b.style.cssText="padding:3px 11px;font-size:13px";if(v===ED.verse)b.className="primary";b.addEventListener("click",()=>{ED.verse=v;edVerseBar();edSelBar();});B.appendChild(b);}
+  if(N<8){const b=document.createElement("button");b.textContent="+ salm";b.style.cssText="padding:3px 10px;font-size:13px";b.addEventListener("click",()=>{ED.c.verses=N+1;ED.verse=N;edChanged();});B.appendChild(b);}
+  if(N>1){const b=document.createElement("button");b.textContent="− salm "+(ED.verse+1);b.style.cssText="padding:3px 10px;font-size:13px";b.addEventListener("click",()=>{const v=ED.verse;
+      ED.c.notes.forEach(n=>{if(isMark(n))return;if(v===0){if(n.lv&&n.lv.length){n.ly=n.lv.shift()||undefined;if(!n.ly)delete n.ly;if(!n.lv.length)delete n.lv;}else delete n.ly;}else if(n.lv){n.lv.splice(v-1,1);while(n.lv.length&&!n.lv[n.lv.length-1])n.lv.pop();if(!n.lv.length)delete n.lv;}});
+      ED.c.verses=N-1;if(ED.c.verses<2)delete ED.c.verses;ED.verse=Math.max(0,v-1);edChanged();});B.appendChild(b);
+    const h=document.createElement("small");h.style.color="#6B7080";h.textContent="Laps laulab laulu iga salmi jaoks otsast peale. Kordusmärke ei kasutata.";B.appendChild(h);}}
 function edSelBar(){
+  edVerseBar();
   const on=ED.sel!=null&&ED.c.notes[ED.sel];
   $("edSelBar").style.background=on?"#FFF1B8":"transparent";
   ["edSelIns","edSelDel","edSelOff"].forEach(id=>$(id).style.display=on?"":"none");
@@ -963,7 +983,7 @@ function edSelBar(){
   const ix=edNoteIdx(),n=ED.c.notes[ED.sel],a=edLayout(ED.c,true).alters[ED.sel];
   $("edSelTxt").textContent="Valitud "+(ix.indexOf(ED.sel)+1)+". noot ("+(n.step==null?"paus":etName(n.step,a))+"). Puuduta joonestikku, et muuta kõrgust.";
   if(n.step==null){LI.style.display="none";lyIdx=null;}
-  else{const was=document.activeElement===LI;lyIdx=ED.sel;LI.style.display="";LI.value=n.ly||"";if(was)setTimeout(()=>{LI.focus();LI.select();},0);}
+  else{const was=document.activeElement===LI;lyIdx=ED.sel;LI.style.display="";LI.value=getLy(n,ED.verse||0);if(was)setTimeout(()=>{LI.focus();LI.select();},0);}
 }
 function edMarkSel(){
   if(!ED.osmd||!ED.osmd.GraphicSheet)return;
@@ -1009,7 +1029,7 @@ document.addEventListener("keydown",e=>{
   if(getComputedStyle($("ed")).display==="none")return;
   const k=(e.key||"").toLowerCase();if(!(e.metaKey||e.ctrlKey)||(k!=="z"&&k!=="y"))return;
   const t=e.target;if(t&&t.tagName==="INPUT"&&t.id!=="edLy"&&t.id!=="edTx")return;
-  if(t&&t.id==="edLy"){const n=ED.c&&ED.c.notes[lyIdx];if(t.value!==((n&&n.ly)||""))return;}
+  if(t&&t.id==="edLy"){const n=ED.c&&ED.c.notes[lyIdx];if(t.value!==(n?getLy(n,ED.verse||0):""))return;}
   if(t&&t.id==="edTx"){const n=ED.c&&ED.c.notes[txIdx];if(t.value!==((n&&n.tx)||""))return;}
   e.preventDefault();if(k==="y"||e.shiftKey)edRedoStep();else edUndoStep();});
 function edChanged(){if(ED.playing)edStop();arcClean();ED.dirty=true;edHist();if(ED.sel!=null&&(!ED.c.notes[ED.sel]||isMark(ED.c.notes[ED.sel])))ED.sel=null;drawPad();edInfo();edSelBar();edRender();edSave();}
@@ -1030,21 +1050,26 @@ function edPlayFrom(k0){
     t+=d;});
   ED.pt.push(setTimeout(edStop,t*1000+500));
 }
-function lyText(){let t="";edNoteIdx().forEach(k=>{const n=ED.c.notes[k];if(n.step==null||!n.ly)return;t+=n.ly+(/-$/.test(n.ly)?"":" ");});return t.trim();}
-function lyApply(txt){
+function lyText(v){v=v||0;let t="";edNoteIdx().forEach(k=>{const n=ED.c.notes[k],l=getLy(n,v);if(n.step==null||!l)return;t+=l+(/-$/.test(l)?"":" ");});return t.trim();}
+function lyApply(txt,v){v=v||0;
   const syl=[];txt.split(/\s+/).filter(Boolean).forEach(w=>{const ps=w.split("-");ps.forEach((q,i)=>{if(q)syl.push(q+(i<ps.length-1?"-":""));});});
   let j=0,slots=0;const skip=new Set();
   edLayout(ED.c,true).arcs.forEach(ar=>{const real=edNoteIdx();for(let r=real.indexOf(ar.ia)+1;r<=real.indexOf(ar.ib);r++)skip.add(real[r]);});
   edNoteIdx().forEach(k=>{const n=ED.c.notes[k];if(n.step==null)return;
-    if(skip.has(k)){delete n.ly;return;}
-    slots++;if(j<syl.length)n.ly=syl[j++];else delete n.ly;});
+    if(skip.has(k)){setLy(n,v,"");return;}
+    slots++;if(j<syl.length)setLy(n,v,syl[j++]);else setLy(n,v,"");});
   return{syl:syl.length,slots,used:j};}
 function showLyPanel(){let o=$("lyp");if(o)o.remove();o=document.createElement("div");o.id="lyp";
   o.style.cssText="position:fixed;inset:0;z-index:40;background:rgba(30,34,48,.45);display:flex;align-items:center;justify-content:center;padding:16px";document.body.appendChild(o);
-  o.innerHTML='<div style="background:#fff;border-radius:20px;padding:18px;max-width:560px;width:100%"><b style="font-size:18px">Sõnad tekstina</b><p style="color:#6B7080;font-size:14px;margin:6px 0 10px">Kleebi või kirjuta sõnad ühe tekstina. Silbid eralda kriipsuga (ti-li-seb), sõnad tühikuga. Äpp paneb silbid järjest noodide alla. Kaarega seotud noodile jääb silp vahele.</p><textarea id="lyT" rows="8" style="width:100%;font-size:16px;padding:8px;border:1px solid #C9C2B6;border-radius:10px"></textarea><div id="lyInfo" style="font-size:13px;color:#6B7080;margin:6px 0"></div><div style="display:flex;gap:8px;justify-content:flex-end"><button id="lyX">Sulge</button><button id="lyOk" class="primary">Pane noodi alla</button></div></div>';
-  $("lyT").value=lyText();
-  $("lyX").onclick=()=>o.remove();
-  $("lyOk").onclick=()=>{const r=lyApply($("lyT").value);ED.dirty=true;o.remove();edChanged();
+  o.innerHTML='<div style="background:#fff;border-radius:20px;padding:18px;max-width:560px;width:100%"><b style="font-size:18px">Sõnad tekstina</b><div id="lyVs" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"></div><p style="color:#6B7080;font-size:14px;margin:6px 0 10px">Kleebi või kirjuta sõnad ühe tekstina. Silbid eralda kriipsuga (ti-li-seb), sõnad tühikuga. Äpp paneb silbid järjest noodide alla. Kaarega seotud noodile jääb silp vahele.</p><textarea id="lyT" rows="8" style="width:100%;font-size:16px;padding:8px;border:1px solid #C9C2B6;border-radius:10px"></textarea><div id="lyInfo" style="font-size:13px;color:#6B7080;margin:6px 0"></div><div style="display:flex;gap:8px;justify-content:flex-end"><button id="lyX">Sulge</button><button id="lyOk" class="primary">Pane noodi alla</button></div></div>';
+  let pv=ED.verse||0;
+  const drawVs=()=>{const B=$("lyVs"),N=Math.max(1,ED.c.verses||1);B.innerHTML="";
+    for(let v=0;v<N;v++){const b=document.createElement("button");b.textContent="Salm "+(v+1);if(v===pv)b.className="primary";b.style.cssText="padding:4px 12px;font-size:13px";b.onclick=()=>{pv=v;$("lyT").value=lyText(pv);drawVs();};B.appendChild(b);}
+    if(N<8){const b=document.createElement("button");b.textContent="+ Uus salm";b.style.cssText="padding:4px 12px;font-size:13px";b.onclick=()=>{ED.c.verses=N+1;pv=N;$("lyT").value="";drawVs();};B.appendChild(b);}};
+  $("lyT").value=lyText(pv);drawVs();
+  const nv0=ED.c.verses;
+  $("lyX").onclick=()=>{if(ED.c.verses!==nv0){if(nv0)ED.c.verses=nv0;else delete ED.c.verses;}o.remove();};
+  $("lyOk").onclick=()=>{ED.verse=pv;const r=lyApply($("lyT").value,pv);ED.dirty=true;o.remove();edChanged();
     $("edLast").textContent=r.syl+" silpi, "+r.slots+" noodi kohta"+(r.syl>r.slots?". "+(r.syl-r.slots)+" silpi jäi üle, kontrolli viimast rida":r.syl<r.slots?". "+(r.slots-r.syl)+" nooti jäi ilma sõnata":"");};
   setTimeout(()=>$("lyT").focus(),50);}
 $("edLyTxt").addEventListener("click",showLyPanel);
@@ -1066,6 +1091,13 @@ function xmlToComp(xml,partIdx,voiceId,title){
   if(!part)return null;
   const c={v:2,title:title||"",fifths:0,beats:4,beatType:4,notes:[],slurs:[],nu:0},N=c.notes;
   let div=1,fifths=0,beats=4,bt=4,first=true,tieA=null;const slurOpen={};
+  // how many verses: our own files say so; for scanned files count verse numbers that cover most of this voice
+  let NV=1;{const mk=/name="la-verses">(\d+)</.exec(xml);
+    if(mk)NV=Math.max(1,Math.min(8,+mk[1]));
+    else{const cnt={};part.querySelectorAll("note").forEach(el=>{const vo=el.querySelector(":scope > voice");if(vo&&vo.textContent.trim()!==String(voiceId))return;if(el.querySelector(":scope > rest")||el.querySelector(":scope > chord"))return;
+        el.querySelectorAll(":scope > lyric").forEach(ly=>{const k=parseInt(ly.getAttribute("number"))||1;cnt[k]=(cnt[k]||0)+1;});});
+      const base=cnt[1]||0;if(base>=6)for(let k=2;k<=8&&(cnt[k]||0)>=base*0.6;k++)NV=k;}
+    if(NV>1)c.verses=NV;}
   const kid=(el,n)=>{for(const x of el.children)if(x.tagName===n)return x;return null;},txt=(el,n)=>{const k=kid(el,n);return k?k.textContent.trim():null;};
   [...part.children].filter(m=>m.tagName==="measure").forEach(m=>{
     const at=kid(m,"attributes");
@@ -1102,8 +1134,9 @@ function xmlToComp(xml,partIdx,voiceId,title){
         if(nt){[...nt.children].forEach(x=>{if(x.tagName==="slur"){const num=x.getAttribute("number")||"1",ty=x.getAttribute("type");
           if(ty==="start"){uid();slurOpen[num]=n;}else if(ty==="stop"&&slurOpen[num]&&slurOpen[num]!==n){c.slurs.push({a:slurOpen[num].u,b:uid()});delete slurOpen[num];}}
           if(x.tagName==="fermata")n.ferm=true;});}
-        const ly=[...el.children].find(x=>x.tagName==="lyric");
-        if(ly){const t=(txt(ly,"text")||"").trim(),sy=txt(ly,"syllabic");if(t)n.ly=t+(sy==="begin"||sy==="middle"?"-":"");}
+        const lys=[...el.children].filter(x=>x.tagName==="lyric");
+        lys.forEach((ly,li)=>{const v=NV>1?(parseInt(ly.getAttribute("number"))||1)-1:0;if(NV<=1&&li>0)return;if(v<0||v>=NV)return;
+          const t=(txt(ly,"text")||"").trim(),sy=txt(ly,"syllabic");if(t)setLy(n,v,t+(sy==="begin"||sy==="middle"?"-":""));});
       }
       N.push(n);total+=n.dur;
     });
@@ -1131,7 +1164,7 @@ function openEditor(sg,optIdx){
   ED.c=(sg&&sg.comp)?JSON.parse(JSON.stringify(sg.comp)):conv||{v:2,title:"",fifths:0,beats:4,beatType:4,notes:[]};
   if(ED.c.v!==2){ED.c.notes.forEach(n=>{if(n.dur)n.dur*=3;});ED.c.v=2;}
   arcMigrate(ED.c);ED.arcA=null;
-  ED.sel=null;ED.dur=12;ED.dot=false;ED.trip=false;ED.acc=null;ED.osmd=null;$("edScore").innerHTML="";
+  ED.verse=0;ED.sel=null;ED.dur=12;ED.dot=false;ED.trip=false;ED.acc=null;ED.osmd=null;$("edScore").innerHTML="";
   ED.fresh=!!conv;ED.dirty=false;ED.hist=[JSON.stringify(ED.c)];ED.redo=[];ED.groups={};ED.hi=null;
   $("edTitle").value=ED.c.title||"";$("edKey").value=ED.c.fifths;$("edTime").value=ED.c.beats+"/"+ED.c.beatType;
   $("edSaved").textContent=ED.rec&&!conv?"Salvestatud ✓":"";if(conv)$("edLast").textContent=inPlace?"paranda noote ja sõnu, siis vajuta Valmis":"koopia failist: paranda ja vajuta Valmis";
