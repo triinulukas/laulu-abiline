@@ -123,9 +123,9 @@
 <canvas id="confetti"></canvas>
 <div id="info" style="display:none;position:fixed;inset:0;z-index:25;background:rgba(30,34,48,.45);align-items:center;justify-content:center;padding:20px"><div style="background:#fff;border-radius:20px;padding:22px;max-width:440px;line-height:1.5">
 <b style="font-size:18px">Kuidas Lauluabilisega harjutada</b>
-<p><b>Miks siin laulusõnu pole?</b><br>Enda kirjutatud lauludes on ainult noodid. See on meelega nii: sõnad õpid oma noodilehelt pähe ja siin laulad juba peast. Nii jäävad sõnad paremini meelde ja saad keskenduda sellele, et iga noot oleks puhas.</p>
+<p><b>Sõnad</b><br>Failist lisatud laulul on sõnad noodi all. Enda kirjutatud laulule saad sõnad ise lisada: vali noot (✏️ Muuda või puuduta noodi), kirjuta silp ja vajuta tühikut, siis hüppab äpp järgmise noodi juurde. Kui sõna jätkub, lõpeta silp kriipsuga: „ti-“, „li-“, „seb“. Kui tahad sõnad peast selgeks õppida, jäta need lihtsalt kirjutamata.</p>
 <p><b>Keerukamad märgid</b><br>Noodikirjutajas avab nupp „⋯ veel“ lisamärgid: kopeerimine (põhireal ⧉: vali taktid, mis lisatakse laulu lõppu), refrääni märkimine (R: vajuta refrääni alguses ja lõpus; siis saab kogu refrääni ühe nupuga lõppu kopeerida), triool, kaar (sama kõrgusega nootide vahel pidekaar, eri kõrgusega sidekaar), fermaat, helistiku ja taktimõõdu vahetus laulu keskel, taktijoon ja eeltakt, kordusmärgid, lõpujoon, dünaamika (pp kuni ff) ning crescendo ja diminuendo.</p>
-<p><b>Failist lisatud laulu parandamine</b><br>Kui noodituvastus tegi vigu, vali õige hääl ja vajuta ✏️ Muuda. Äpp teeb sellest häälest muudetava koopia (ilma sõnadeta): vali vale noot (puuduta seda või kasuta nooli ◀ ▶), puuduta joonestikul õiget kõrgust või vali uus pikkus, ja vajuta Valmis.</p>
+<p><b>Failist lisatud laulu parandamine</b><br>Kui noodituvastus tegi vigu, vali õige hääl ja vajuta ✏️ Muuda. Äpp teeb sellest häälest muudetava koopia (sõnadega): vali vale noot (puuduta seda või kasuta nooli ◀ ▶), puuduta joonestikul õiget kõrgust või vali uus pikkus, ja vajuta Valmis.</p>
 <p><b>Kus laulud asuvad?</b><br>Laulud, auhinnad ja salvestused on selle seadme brauseris ja jäävad alles ka siis, kui äpp on kinni. Kindluse mõttes tee aeg-ajalt varukoopia: Minu laulud → ⬇ Varukoopia. Sama failiga saab laulud teise seadmesse viia (⬆ Taasta).</p>
 <p><b>Harjutamise järjekord</b><br>1. Kirjuta laul oma noodi järgi sisse (✏️ Kirjuta laul).<br>2. Kuula meloodia ära (Mängi ette).<br>3. Õpi sõnad paberilt pähe.<br>4. Laula peast (Laula) ja kuula ennast üle (🎧 Kuula mind).<br>5. Veatu laul toob auhinna 🏆.</p>
 <div style="text-align:right"><button id="infoClose">Selge</button></div></div></div>
@@ -134,12 +134,13 @@
     <input id="edTitle" placeholder="Laulu pealkiri" maxlength="60">
     <select id="edKey" title="Võtmemärgid"></select>
     <select id="edTime" title="Taktimõõt"><option>4/4</option><option>3/4</option><option>2/4</option><option>2/2</option><option>6/8</option><option>3/8</option><option>6/4</option></select>
-    <span id="edSaved" style="font-size:13px;color:#1F9D55"></span><button id="edLater">Jätkan hiljem</button><button class="primary" id="edDone">Valmis ✓</button>
+    <span id="edSaved" style="font-size:13px;color:#1F9D55"></span><button id="edDup" title="Tee sellest laulust uus koopia">⧉ Koopia</button><button id="edLater">Jätkan hiljem</button><button class="primary" id="edDone">Valmis ✓</button>
   </div>
-  <div id="edScoreWrap"><div id="edHint">Vali üleval võtmemärgid ja taktimõõt nagu sinu noodis.<br>Siis vali all noodi pikkus ja puuduta noodijoonestikul õiget kohta.<br><br><small>Sõnu siia ei kirjutata. Õpi need oma noodilehelt pähe ja laula siin peast.</small></div><div id="edScore"></div></div>
+  <div id="edScoreWrap"><div id="edHint">Vali üleval võtmemärgid ja taktimõõt nagu sinu noodis.<br>Siis vali all noodi pikkus ja puuduta noodijoonestikul õiget kohta.<br><br><small>Sõnu saad lisada igale noodile: vali noot ja kirjuta silp.</small></div><div id="edScore"></div></div>
   <div id="edSelBar" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 10px 0;padding:4px 8px;border-radius:12px;font-size:13px;color:var(--muted)">
     <button id="edSelPrev" style="padding:4px 12px">◀</button><button id="edSelNext" style="padding:4px 12px">▶</button>
     <span id="edSelTxt" style="flex:1;min-width:150px"></span>
+    <input id="edLy" placeholder="Sõna või silp. Kirjuta „ti-“, kui sõna jätkub. Tühik = järgmine noot" maxlength="40" autocomplete="off" style="flex:1 1 100%;font-size:16px;padding:6px 10px;border:1px solid #C9C2B6;border-radius:10px;display:none">
     <button id="edSelIns" style="padding:4px 10px;font-size:13px">Lisa noot ette</button><button id="edSelDel" style="padding:4px 10px;font-size:13px">Kustuta</button><button id="edSelOff" class="primary" style="padding:4px 10px;font-size:13px">Jätka lõpust</button>
   </div>
   <div id="edInfo"><span id="edBar"></span><b id="edLast"></b></div>
@@ -643,7 +644,7 @@ function edLayout(c,noPad){
       fill+=take;left-=take;
     }
     if(n.step!=null)pieces.forEach((pc,k)=>{pc.tieStart=k<pieces.length-1;});
-    if(n.ferm)pieces[pieces.length-1].ferm=true;
+    pieces[0].first=true;if(n.ferm)pieces[pieces.length-1].ferm=true;
     if(pend.length){pieces[0].pre=pend;pend=[];}
     lastPc=pieces[pieces.length-1];
     noteP.push(pieces);
@@ -674,6 +675,7 @@ function compXML(c,noPad){
   const L=edLayout(c,noPad);let ms=L.ms.slice();
   while(ms.length>1&&!ms[ms.length-1].p.length&&!ms[ms.length-1].left)ms.pop();
   if(!noPad&&!ms[ms.length-1].right)ms[ms.length-1]=Object.assign({},ms[ms.length-1],{right:"final"});
+  const LY={};{let pc=false;c.notes.forEach((n,k)=>{if(isMark(n)||n.step==null||!n.ly)return;const cont=/-$/.test(n.ly),t=n.ly.replace(/-+$/,'').trim();if(!t){return;}LY[k]={t,s:pc?(cont?'middle':'end'):(cont?'begin':'single')};pc=cont;});}
   let x='<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><work><work-title>'+escX(c.title||"Minu laul")+'</work-title></work><part-list><score-part id="P1"><part-name>Laul</part-name></score-part></part-list><part id="P1">';
   ms.forEach((m,i)=>{
     x+='<measure number="'+(i+1)+'">';
@@ -693,6 +695,7 @@ function compXML(c,noPad){
       if(pc.tupStart)nt+='<tuplet type="start" bracket="yes"/>';if(pc.tupStop)nt+='<tuplet type="stop"/>';
       if(pc.ferm)nt+='<fermata type="upright"/>';
       if(nt)x+='<notations>'+nt+'</notations>';
+      if(pc.first&&LY[pc.owner])x+='<lyric number="1"><syllabic>'+LY[pc.owner].s+'</syllabic><text>'+escX(LY[pc.owner].t)+'</text></lyric>';
       x+='</note>';(pc.post||[]).forEach(d=>{x+=dirX(d);});});
     if(m.right)x+='<barline location="right"><bar-style>'+(m.right==="double"?"light-light":"light-heavy")+'</bar-style>'+(m.right==="repEnd"?'<repeat direction="backward"/>':'')+'</barline>';
     x+='</measure>';});
@@ -842,13 +845,18 @@ function edSelMove(dir){const ix=edNoteIdx();if(!ix.length)return;
 function edSelDelete(){if(ED.sel==null)return;ED.c.notes.splice(ED.sel,1);
   const ix=edNoteIdx();const nx=ix.find(k=>k>=ED.sel);ED.sel=nx!=null?nx:(ix.length?ix[ix.length-1]:null);edTools();edChanged();}
 function edSelInsert(){if(ED.sel==null)return;const n=ED.c.notes[ED.sel];ED.c.notes.splice(ED.sel,0,{step:n.step,dur:n.trip?12:n.dur,acc:null});edTools();edChanged();}
+let lyIdx=null;
+function lyCommit(){if(lyIdx==null||!ED.c||!ED.c.notes[lyIdx])return false;const n=ED.c.notes[lyIdx],v=$("edLy").value.replace(/\s+/g,"").slice(0,40);if((n.ly||"")===v)return false;if(v)n.ly=v;else delete n.ly;return true;}
 function edSelBar(){
   const on=ED.sel!=null&&ED.c.notes[ED.sel];
   $("edSelBar").style.background=on?"#FFF1B8":"transparent";
   ["edSelIns","edSelDel","edSelOff"].forEach(id=>$(id).style.display=on?"":"none");
-  if(!on){$("edSelTxt").textContent="Paranda: vali noot nooltega või puuduta seda üleval";return;}
+  const LI=$("edLy");
+  if(!on){$("edSelTxt").textContent="Paranda: vali noot nooltega või puuduta seda üleval";LI.style.display="none";lyIdx=null;return;}
   const ix=edNoteIdx(),n=ED.c.notes[ED.sel],a=edLayout(ED.c,true).alters[ED.sel];
-  $("edSelTxt").textContent="Valitud "+(ix.indexOf(ED.sel)+1)+". noot ("+(n.step==null?"paus":etName(n.step,a))+"). Puuduta joonestikku, et muuta kõrgust, või vali uus pikkus.";
+  $("edSelTxt").textContent="Valitud "+(ix.indexOf(ED.sel)+1)+". noot ("+(n.step==null?"paus":etName(n.step,a))+"). Puuduta joonestikku, et muuta kõrgust.";
+  if(n.step==null){LI.style.display="none";lyIdx=null;}
+  else{const was=document.activeElement===LI;lyIdx=ED.sel;LI.style.display="";LI.value=n.ly||"";if(was)setTimeout(()=>{LI.focus();LI.select();},0);}
 }
 function edMarkSel(){
   if(!ED.osmd||!ED.osmd.GraphicSheet)return;
@@ -890,6 +898,14 @@ function edPlay(){
   const L=edLayout(ED.c,true),c=ac(),q=60/(+$("tempo").value),t0=c.currentTime+0.1;let t=0;
   ED.c.notes.forEach((n,i)=>{if(isMark(n))return;const d=n.dur/12*q;if(n.step!=null)tone(stepMidi(n.step,L.alters[i]),t0+t,d*0.95);t+=d;});
 }
+$("edLy").addEventListener("change",()=>{if(lyCommit())edSave();});
+$("edLy").addEventListener("keydown",e=>{
+  if(e.key==="Enter"||e.key===" "||e.key==="Tab"){e.preventDefault();if(e.key===" "&&!$("edLy").value.trim())return;lyCommit();edSave();edSelMove(e.shiftKey&&e.key==="Tab"?-1:1);}});
+$("edDup").addEventListener("click",async()=>{
+  lyCommit();await edSave();if(!ED.rec)return;
+  const r=JSON.parse(JSON.stringify(Object.assign({},ED.rec,{rec:null})));
+  r.id="s"+Date.now()+Math.random().toString(36).slice(2,6);r.title=(ED.c.title||"Minu laul")+" (koopia)";r.added=Date.now();r.opened=Date.now();r.best=null;r.prize=null;r.rec=null;r.comp.title=r.title;
+  await db.put(r);ED.rec=r;ED.c=r.comp;ED.sel=null;$("edTitle").value=r.title;edTools();edChanged();$("edLast").textContent="Tegin koopia. Muuda seda vabalt.";});
 // turn one voice of an imported MusicXML file into an editable song
 function xmlToComp(xml,partIdx,voiceId,title){
   const d=new DOMParser().parseFromString(xml,"application/xml"),part=d.querySelectorAll("score-partwise > part")[partIdx];
@@ -928,6 +944,8 @@ function xmlToComp(xml,partIdx,voiceId,title){
         if([...el.children].some(x=>x.tagName==="tie"&&x.getAttribute("type")==="start"))n.arc=true;
         if(nt){[...nt.children].forEach(x=>{if(x.tagName==="slur"){if(x.getAttribute("type")==="start")slur=true;else if(x.getAttribute("type")==="stop")slur=false;}if(x.tagName==="fermata")n.ferm=true;});}
         if(slur)n.arc=true;
+        const ly=[...el.children].find(x=>x.tagName==="lyric");
+        if(ly){const t=(txt(ly,"text")||"").trim(),sy=txt(ly,"syllabic");if(t)n.ly=t+(sy==="begin"||sy==="middle"?"-":"");}
       }
       N.push(n);total+=n.dur;
     });
@@ -952,10 +970,10 @@ $("edKey").addEventListener("change",e=>{ED.c.fifths=+e.target.value;drawPad();e
 $("edTime").addEventListener("change",e=>{const [a,b]=e.target.value.split("/");ED.c.beats=+a;ED.c.beatType=+b;edChanged();});
 $("edTitle").addEventListener("change",()=>{edSave();});
 $("edDone").addEventListener("click",async()=>{
-  await edSave();$("ed").style.display="none";
+  lyCommit();await edSave();$("ed").style.display="none";
   if(ED.rec&&ED.c.notes.some(n=>!isMark(n))){await openSong(ED.rec.id);}
 });
-$("edLater").addEventListener("click",async()=>{await edSave();$("ed").style.display="none";
+$("edLater").addEventListener("click",async()=>{lyCommit();await edSave();$("ed").style.display="none";
   if(ED.rec){if(curSong&&curSong.id===ED.rec.id)await openSong(ED.rec.id);await renderLib();$("lib").style.display="flex";}});
 $("editCur").addEventListener("click",()=>{if(curSong)openEditor(curSong);});
 ["edBtn","edBtn2","edBtn3"].forEach(id=>$(id).addEventListener("click",()=>{$("lib").style.display="none";openEditor(null);}));
