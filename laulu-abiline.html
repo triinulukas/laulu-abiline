@@ -324,7 +324,7 @@ function setupVoice(){
   goTo(0);
 }
 function goTo(i){
-  idx=Math.max(0,Math.min(i,targets.length));held=0;active=false;wrongMs=0;wrongNote=null;onset=false;
+  idx=Math.max(0,Math.min(i,targets.length));held=0;active=false;wrongMs=0;wrongNote=null;onset=false;sungAs=null;
   const c=osmd.cursor;c.reset();
   const step=idx<targets.length?targets[idx].step:(targets.length?targets[targets.length-1].step:0);
   for(let s=0;s<step;s++)c.Iterator.moveToNext();
@@ -336,7 +336,7 @@ function colorNote(t,color){
   [t.note].concat(t.also||[]).forEach(nn=>{try{const gn=osmd.rules.GNote(nn);const g=gn&&gn.getSVGGElement&&gn.getSVGGElement();if(!g)return;
     g.querySelectorAll("path,rect,ellipse").forEach(p=>{p.setAttribute("fill",color);p.setAttribute("stroke",color);p.style.fill=color;p.style.stroke=color;});}catch(e){}});
 }
-function setStatus(i,s){if(!targets[i])return;status[i]=s;colorNote(targets[i],s==="good"?COL.good:s==="fixed"?COL.fixed:COL.bad);updateProgress();}
+function setStatus(i,s){if(!targets[i])return;if(s!=="bad")sungAs=null;status[i]=s;colorNote(targets[i],s==="good"?COL.good:s==="fixed"?COL.fixed:COL.bad);updateProgress();}
 function updateProgress(){
   const done=status.filter(s=>s).length,good=status.filter(s=>s==="good").length;
   $("progress").textContent=targets.length?`${Math.min(idx+1,targets.length)}/${targets.length} · õigeid ${good}`:"";
@@ -415,7 +415,7 @@ function loop(now){
   if(idx<targets.length)follow(m,dt);
   requestAnimationFrame(loop);
 }
-let stableNote=null,stableMs=0;
+let stableNote=null,stableMs=0,sungAs=null;
 function follow(m,dt){
   const r=m===null?null:Math.round(m);
   if(r!==null&&r===stableNote)stableMs+=dt;else{stableNote=r;stableMs=0;}
@@ -434,15 +434,25 @@ function follow(m,dt){
           idx+=k;goToKeep();setStatus(idx,"good");active=true;held=0;onset=false;feedback("Õige!",COL.good);return;
         }
       }
-      if(status[idx]!=="bad"){setStatus(idx,"bad");}
-      if(stableMs>=1600){advance();active=false;stableMs=0;return;}
-      const up=r>tg.midi?"liiga kõrge":"liiga madal";
-      feedback(`Noodis on ${noteLabel(tg.midi)}, sina laulad ${noteLabel(r)} – ${up}`,COL.bad);
+      // wrong note: mark it red and keep the song moving
+      setStatus(idx,"bad");active=true;held=0;onset=false;sungAs=r;
+      feedback(`Noodis oli ${noteLabel(tg.midi)}, sina laulsid ${noteLabel(r)} – ${r>tg.midi?"liiga kõrge":"liiga madal"}`,COL.bad);
     }
     return;
   }
   // active: current note is being sung
   held+=dt;
+  if(sungAs!=null&&r===sungAs&&!matchesMidi(r,tg.midi)){
+    // still holding the wrong pitch: move on at a new syllable or when the note's time is up
+    const q=60/(+$("tempo").value)*1000,durMs=tg.len*4*q;
+    if(!nx){if(held>400)advance();return;}
+    if((onset&&stableMs>=50)||held>Math.max(700,1.5*durMs)){
+      advance();setStatus(idx,"bad");active=true;held=0;onset=false;sungAs=r;
+      feedback(`Noodis oli ${noteLabel(targets[idx].midi)}, sina laulsid ${noteLabel(r)} – ${r>targets[idx].midi?"liiga kõrge":"liiga madal"}`,COL.bad);
+    }
+    return;
+  }
+  if(sungAs!=null&&matchesMidi(r,tg.midi)&&stableMs>=70){setStatus(idx,"fixed");feedback("Parandatud!",COL.good);}
   if(matchesMidi(r,tg.midi)){
     const q=60/(+$("tempo").value)*1000,durMs=tg.len*4*q;
     if(nx&&nx.midi===tg.midi&&(onset||held>Math.max(450,1.1*durMs))&&stableMs>=50){
@@ -462,8 +472,9 @@ function follow(m,dt){
         idx+=k;goToKeep();setStatus(idx,"good");active=true;held=0;onset=false;feedback("Õige!",COL.good);return;
       }
     }
-    if(nx){advance();active=false;if(status[idx]!=="bad")setStatus(idx,"bad");
-      feedback(`Noodis on ${noteLabel(nx.midi)}, sina laulad ${noteLabel(r)} – ${r>nx.midi?"liiga kõrge":"liiga madal"}`,COL.bad);}
+    if(nx){advance();setStatus(idx,"bad");active=true;held=0;onset=false;sungAs=r;
+      feedback(`Noodis oli ${noteLabel(nx.midi)}, sina laulsid ${noteLabel(r)} – ${r>nx.midi?"liiga kõrge":"liiga madal"}`,COL.bad);}
+    else if(held>400)advance();
   }
 }
 function goToKeep(){const k=idx;const st=status;goTo(k);status=st;}
