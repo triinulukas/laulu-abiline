@@ -118,6 +118,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     #row3 button{padding:5px 8px;font-size:12px;white-space:nowrap}
     #progress{font-size:11px}
   }
+  @media (max-width:480px){
+    #lib{padding:12px 8px}
+    #lib .card{padding:12px}
+    .song{flex-wrap:wrap;gap:4px 8px;padding:10px}
+    .song .t{flex:1 1 0;min-width:0}
+    .song .t b{white-space:normal;word-break:break-word}
+    .song .del{white-space:nowrap;padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:13px}
+    .song .pz{order:0}.song .t{order:1}
+    .song .del{order:2}
+    .song::after{content:"";flex-basis:100%;order:1;height:0}
+  }
 </style>
 </head>
 <body>
@@ -166,7 +177,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 <p><b>Kus laulud asuvad?</b><br>Laulud, auhinnad ja salvestused on selle seadme brauseris ja jäävad alles ka siis, kui äpp on kinni. Kindluse mõttes tee aeg-ajalt varukoopia: Minu laulud → ⬇ Varukoopia. Sama failiga saab laulud teise seadmesse viia (⬆ Taasta).</p>
 <p><b>Mängimine ja kerimine</b><br>Noodile puudutamine viib laulu sellesse kohta, ka mängimise ajal. ◀ ▶ hüppavad mängimise ajal eelmise või järgmise noodi juurde, nii saad pikad pausid vahele jätta. Redaktoris saab tegevusi tagasi võtta nupuga ↶ või klahvidega Cmd+Z (Cmd+Shift+Z teeb uuesti). Laulu nime muudad laulude loendis nupuga Nimeta.</p>
 <p><b>Harjutamise järjekord</b><br>1. Kirjuta laul oma noodi järgi sisse (✏️ Kirjuta laul).<br>2. Kuula meloodia ära (Mängi ette).<br>3. Õpi sõnad paberilt pähe.<br>4. Laula peast (Laula) ja kuula ennast üle (🎧 Kuula mind).<br>5. Veatu laul toob auhinna 🏆.</p>
-<p style="color:#6B7080;font-size:13px">Versioon: <b>v23d</b> · 16.11.2026 · väikese ekraani paigutus</p><div style="text-align:right;position:sticky;bottom:-22px;background:#fff;padding:10px 0 2px"><button id="infoClose" class="primary">Selge, sulge</button></div></div></div>
+<p style="color:#6B7080;font-size:13px">Versioon: <b>v23e</b> · 16.11.2026 · väikese ekraani paigutus</p><div style="text-align:right;position:sticky;bottom:-22px;background:#fff;padding:10px 0 2px"><button id="infoClose" class="primary">Selge, sulge</button></div></div></div>
 <div id="ed">
   <div id="edTop">
     <input id="edTitle" placeholder="Laulu pealkiri" maxlength="60">
